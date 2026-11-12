@@ -102,7 +102,10 @@ theorem flexMain_fills (avail : Nat) (items : List FlexItem)
   have hl : (distribute (avail - (items.map (·.basis)).sum) (items.map (·.grow)).sum 0
       (items.map (·.grow))).length = items.length := by rw [distribute_length]; simp
   have := zip_clamp_sum avail items _ hl (by rw [hs]; omega) hfree
-  unfold flexMain; simp only []; rw [this, hs]; omega
+  unfold flexMain
+  simp only []
+  rw [this, hs]
+  omega
 
 theorem roundDev_mono (scale120 : Nat) (a b : Int) (h : a ≤ b) :
     roundDev scale120 a ≤ roundDev scale120 b := by
@@ -125,12 +128,15 @@ theorem roundRect_abut (scale120 : Nat) (a b : Rect) (h : a.right = b.x) :
     = roundDev scale120 b.x
   rw [h]; omega
 
-theorem roundRect_nonneg (scale120 : Nat) (r : Rect) (hw : 0 ≤ r.w) (hh : 0 ≤ r.h) :
-    0 ≤ (roundRect scale120 r).w ∧ 0 ≤ (roundRect scale120 r).h := by
+theorem roundRect_ordered (scale120 : Nat) (r : Rect) (hw : 0 ≤ r.w) (hh : 0 ≤ r.h) :
+    (roundRect scale120 r).x ≤ (roundRect scale120 r).right ∧
+      (roundRect scale120 r).y ≤ (roundRect scale120 r).bottom := by
   have h1 := roundDev_mono scale120 r.x r.right (by unfold Rect.right; omega)
   have h2 := roundDev_mono scale120 r.y r.bottom (by unfold Rect.bottom; omega)
   constructor
-  · show 0 ≤ roundDev scale120 r.right - roundDev scale120 r.x; omega
-  · show 0 ≤ roundDev scale120 r.bottom - roundDev scale120 r.y; omega
+  · show roundDev scale120 r.x ≤ roundDev scale120 r.x + (roundDev scale120 r.right - roundDev scale120 r.x)
+    omega
+  · show roundDev scale120 r.y ≤ roundDev scale120 r.y + (roundDev scale120 r.bottom - roundDev scale120 r.y)
+    omega
 
 end LeanUI.Spec

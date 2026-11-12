@@ -10,42 +10,92 @@ open FocusState
 /-- Granted branch: the owner changes, the trap stack is framed. -/
 theorem request_granted (s : FocusState) (id : EntityId) (h : s.admits id = true) :
     (s.request id).owner = some id ∧ (s.request id).traps = s.traps := by
-  sorry
+  simp [request, h]
 
 /-- Refused branch: explicit rollback. -/
 theorem request_refused (s : FocusState) (id : EntityId) (h : s.admits id = false) :
     s.request id = s := by
-  sorry
+  simp [request, h]
 
 theorem request_confined (s : FocusState) (id : EntityId) (h : Confined s) :
     Confined (s.request id) := by
-  sorry
+  intro id' h'
+  by_cases hadm : s.admits id = true
+  · have e : s.request id = { s with owner := some id } := by simp [request, hadm]
+    rw [e] at h' ⊢
+    simp at h'
+    subst h'
+    exact hadm
+  · have e : s.request id = s := by simp [request, hadm]
+    rw [e] at h' ⊢
+    exact h id' h'
 
 /-- Opening a modal always establishes confinement, whatever held focus before. -/
 theorem pushTrap_confined (s : FocusState) (ids : List EntityId) : Confined (s.pushTrap ids) := by
-  sorry
+  intro id h
+  simp [pushTrap, Option.filter_eq_some_iff] at h
+  simp [pushTrap, admits, h.2]
 
 theorem popTrap_confined (s : FocusState) : Confined s.popTrap := by
-  sorry
+  intro id h
+  simp [popTrap] at h
 
 theorem blur_confined (s : FocusState) : Confined s.blur := by
-  sorry
+  intro id h
+  simp [blur] at h
+
+private theorem foldl_hit_sound (px py : Int) (id : EntityId) :
+    ∀ (regions : List (EntityId × Rect)) (acc : Option EntityId),
+      regions.foldl (fun acc (p : EntityId × Rect) =>
+        if p.2.contains px py then some p.1 else acc) acc = some id →
+      acc = some id ∨ ∃ r, (id, r) ∈ regions ∧ r.contains px py = true := by
+  intro regions
+  induction regions with
+  | nil => intro acc h; exact Or.inl h
+  | cons e rest ih =>
+    intro acc h
+    rw [List.foldl_cons] at h
+    rcases ih _ h with h' | ⟨r, hm, hc⟩
+    · by_cases hc : e.2.contains px py = true
+      · simp [hc] at h'
+        exact Or.inr ⟨e.2, by rw [← h']; exact List.mem_cons_self, hc⟩
+      · simp [hc] at h'
+        exact Or.inl h'
+    · exact Or.inr ⟨r, List.mem_cons_of_mem _ hm, hc⟩
+
+private theorem foldl_hit_none (px py : Int) :
+    ∀ (regions : List (EntityId × Rect)) (acc : Option EntityId),
+      regions.foldl (fun acc (p : EntityId × Rect) =>
+        if p.2.contains px py then some p.1 else acc) acc = none ↔
+      (acc = none ∧ ∀ e, e ∈ regions → e.2.contains px py = false) := by
+  intro regions
+  induction regions with
+  | nil => intro acc; simp
+  | cons e rest ih =>
+    intro acc
+    rw [List.foldl_cons, ih]
+    by_cases hc : e.2.contains px py = true
+    · simp [hc]
+    · simp [hc]
 
 /-- A hit is always a region that contains the point. -/
 theorem hitTest_sound (regions : List (EntityId × Rect)) (px py : Int) (id : EntityId)
     (h : hitTest regions px py = some id) :
     ∃ r, (id, r) ∈ regions ∧ r.contains px py = true := by
-  sorry
+  rcases foldl_hit_sound px py id regions none h with h' | h'
+  · cases h'
+  · exact h' 
 
 /-- A miss means no region contains the point. -/
 theorem hitTest_none_iff (regions : List (EntityId × Rect)) (px py : Int) :
     hitTest regions px py = none ↔ ∀ e, e ∈ regions → e.2.contains px py = false := by
-  sorry
+  have := foldl_hit_none px py regions none
+  simpa [hitTest] using this
 
 /-- Paint order decides: the last-painted containing region wins. -/
 theorem hitTest_topmost (regions : List (EntityId × Rect)) (id : EntityId) (r : Rect)
     (px py : Int) (h : r.contains px py = true) :
     hitTest (regions ++ [(id, r)]) px py = some id := by
-  sorry
+  simp [hitTest, List.foldl_append, h]
 
 end LeanUI.Spec
