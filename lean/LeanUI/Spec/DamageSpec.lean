@@ -64,4 +64,18 @@ theorem redraw_iff_dirty (rects : List Rect) :
     needsRedraw (rects.foldl Damage.add none) = true ↔ ∃ r, r ∈ rects ∧ r.isEmpty = false := by
   rw [foldl_add_isSome]; simp [needsRedraw]
 
+/-- Tightness: the union is the least box — any box enclosing both inputs encloses it. -/
+theorem union_least (a r q : Rect)
+    (hax : q.x ≤ a.x) (hrx : q.x ≤ r.x) (har : a.right ≤ q.right) (hrr : r.right ≤ q.right)
+    (hay : q.y ≤ a.y) (hry : q.y ≤ r.y) (hab : a.bottom ≤ q.bottom) (hrb : r.bottom ≤ q.bottom) :
+    q.x ≤ (a.union r).x ∧ (a.union r).right ≤ q.right ∧
+      q.y ≤ (a.union r).y ∧ (a.union r).bottom ≤ q.bottom := by
+  sorry
+
+/-- Well-formed damage never stores an empty rect (an empty one would inflate later unions). -/
+def DamageWF (d : Damage) : Prop := ∀ a, d = some a → a.isEmpty = false
+
+theorem damage_add_wf (d : Damage) (r : Rect) (h : DamageWF d) : DamageWF (d.add r) := by
+  sorry
+
 end LeanUI.Spec

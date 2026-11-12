@@ -62,6 +62,20 @@ inductive Prim where
   /-- Push a scissor rect (intersected with the current one). -/
   | clipPush (rect : Rect)
   | clipPop
+  /-- Rounded rect with per-corner radii (tl tr br bl) and per-side border widths (t r b l). -/
+  | rrect (rect : Rect) (fill : Color) (radii : Nat × Nat × Nat × Nat)
+      (borders : Nat × Nat × Nat × Nat) (border : Color)
+  /-- Rect filled with a two-stop linear gradient from `c0` to `c1` at `angleDeg`. -/
+  | linear (rect : Rect) (c0 c1 : Color) (angleDeg : Nat) (radius : Nat)
+  /-- Coverage mask from atlas page `page` (CPU-rasterised vector paths, math, icons). -/
+  | mask (page : Nat) (src : Rect) (dst : Rect) (color : Color)
+  /-- RGBA image from texture `tex`. -/
+  | image (tex : Nat) (src : Rect) (dst : Rect) (radius : Nat)
+  /-- Scissor with rounded corners (radii tl tr br bl). -/
+  | clipPushRounded (rect : Rect) (radii : Nat × Nat × Nat × Nat)
+  /-- Group opacity (0..255) for everything until the matching `layerPop`. -/
+  | layerPush (opacity : Nat)
+  | layerPop
   deriving DecidableEq, Repr
 
 abbrev Scene := Array Prim
@@ -87,6 +101,16 @@ inductive Event where
   | scale (scale120 : Nat)
   | windowFocus (focused : Bool)
   | closeRequested
+  /-- Pointer left the surface (clears hover). -/
+  | pointerLeave
+  /-- One atomic text-input-v3 `done` batch, applied in protocol order: delete
+  `delBefore`/`delAfter` bytes around the cursor, insert `commit`, then show `preedit`. -/
+  | imeBatch (delBefore delAfter : Nat) (commit : String) (preedit : String)
+      (cursorBegin cursorEnd : Int)
+  /-- Clipboard paste or drag-and-drop payload offered as `mime`; Lean reads and closes `fd`. -/
+  | drop (x y : Int) (mime : String) (fd : Nat)
+  /-- Compositor timestamp (ms) of the input events that follow, for double-click and repeat. -/
+  | time (ms : UInt32)
   deriving Repr
 
 /-- Keyboard focus: at most one owner (by type), confined to the top modal trap if any. -/

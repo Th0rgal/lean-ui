@@ -41,6 +41,20 @@ def flexMain (avail : Nat) (items : List FlexItem) : List Nat :=
   let y0 := roundDev scale120 r.y
   { x := x0, y := y0, w := roundDev scale120 r.right - x0, h := roundDev scale120 r.bottom - y0 }
 
+/-- Largest device pixel boundary at or below a logical coordinate. -/
+@[inline] def floorDev (scale120 : Nat) (v : Int) : Int :=
+  (v * scale120) / (subPerPx * scaleDen : Nat)
+
+/-- Smallest device pixel boundary at or above a logical coordinate. -/
+@[inline] def ceilDev (scale120 : Nat) (v : Int) : Int :=
+  -((-(v * scale120)) / (subPerPx * scaleDen : Nat))
+
+/-- Round a rect outward, for damage: every partly covered device pixel is included. -/
+@[inline] def roundRectOut (scale120 : Nat) (r : Rect) : Rect :=
+  let x0 := floorDev scale120 r.x
+  let y0 := floorDev scale120 r.y
+  { x := x0, y := y0, w := ceilDev scale120 r.right - x0, h := ceilDev scale120 r.bottom - y0 }
+
 /-! ## Damage -/
 
 /-- Bounding box of two rects. -/

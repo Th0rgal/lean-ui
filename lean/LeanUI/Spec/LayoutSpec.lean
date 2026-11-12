@@ -139,4 +139,23 @@ theorem roundRect_ordered (scale120 : Nat) (r : Rect) (hw : 0 ≤ r.w) (hh : 0 �
   · show roundDev scale120 r.y ≤ roundDev scale120 r.y + (roundDev scale120 r.bottom - roundDev scale120 r.y)
     omega
 
+/-- Proportionality: every child gets its exact proportional share, rounded down or up by
+less than one sub-unit. Rules out handing all free space to one child. -/
+theorem distribute_proportional (free total acc : Nat) (gs : List Nat) (ht : 0 < total) :
+    ∀ p, p ∈ gs.zip (distribute free total acc gs) →
+      free * p.1 / total ≤ p.2 ∧ p.2 ≤ free * p.1 / total + 1 := by
+  sorry
+
+/-- Rounding error is at most half a device pixel (7680 scaled sub-units per pixel). -/
+theorem roundDev_half_pixel (scale120 : Nat) (v : Int) :
+    v * scale120 - 3840 < 7680 * roundDev scale120 v ∧
+      7680 * roundDev scale120 v ≤ v * scale120 + 3840 := by
+  sorry
+
+/-- Outward rounding loses nothing: the device pixel under any covered point is covered. -/
+theorem roundRectOut_covers (scale120 : Nat) (hs : 0 < scale120) (r : Rect) (px py : Int)
+    (h : r.contains px py = true) :
+    (roundRectOut scale120 r).contains (floorDev scale120 px) (floorDev scale120 py) = true := by
+  sorry
+
 end LeanUI.Spec

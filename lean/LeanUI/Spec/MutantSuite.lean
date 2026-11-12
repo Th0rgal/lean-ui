@@ -22,7 +22,7 @@ def roundRectBySize (scale120 : Nat) (r : Rect) : Rect :=
   { x := roundDev scale120 r.x, y := roundDev scale120 r.y,
     w := roundDev scale120 r.w, h := roundDev scale120 r.h }
 
-/-- At 1.5x two abutting 1px-wide rects at x = 1px and 2px tear apart. -/
+/-- At 1.5x two abutting 1px-wide rects at x = 1px and 2px overlap by one device pixel. -/
 theorem roundRectBySize_seam :
     let a : Rect := { x := 64, y := 0, w := 64, h := 64 }
     let b : Rect := { x := 128, y := 0, w := 64, h := 64 }
@@ -77,5 +77,15 @@ theorem cache_unsound_on_collision :
     ¬ CollisionFreeOn hash [1, 2] ∧ c.lookup hash 2 = some 100 := by
   refine ⟨fun h => absurd (h 1 (by simp) 2 (by simp) rfl) (by decide), ?_⟩
   decide
+
+/-- Mutant: cache lookup that returns the newest entry without comparing hashes. -/
+def lookupHead {β : Type} (c : HashCache β) : Option β := c.entries.head?.map (·.2)
+
+/-- With an injective hash the kernel finds the older key; the mutant serves the newer value. -/
+theorem lookupHead_wrong_entry :
+    let hash : Nat → UInt64 := fun n => n.toUInt64
+    let c : HashCache Nat := (({} : HashCache Nat).insert hash 1 10).insert hash 2 20
+    c.lookup hash 1 = some 10 ∧ lookupHead c = some 20 := by
+  sorry
 
 end LeanUI.Spec.Mutant

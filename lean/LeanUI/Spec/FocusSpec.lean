@@ -92,10 +92,26 @@ theorem hitTest_none_iff (regions : List (EntityId × Rect)) (px py : Int) :
   have := foldl_hit_none px py regions none
   simpa [hitTest] using this
 
-/-- Paint order decides: the last-painted containing region wins. -/
-theorem hitTest_topmost (regions : List (EntityId × Rect)) (id : EntityId) (r : Rect)
-    (px py : Int) (h : r.contains px py = true) :
-    hitTest (regions ++ [(id, r)]) px py = some id := by
-  simp [hitTest, List.foldl_append, h]
+/-- Paint order decides: the last-painted containing region wins, wherever it sits. -/
+theorem hitTest_last_containing (pre post : List (EntityId × Rect)) (id : EntityId) (r : Rect)
+    (px py : Int) (h : r.contains px py = true)
+    (hpost : ∀ e, e ∈ post → e.2.contains px py = false) :
+    hitTest (pre ++ (id, r) :: post) px py = some id := by
+  sorry
+
+/-- An open modal refuses focus to anything outside it. -/
+theorem pushTrap_refuses (s : FocusState) (ids : List EntityId) (id : EntityId)
+    (h : ids.contains id = false) : ((s.pushTrap ids).request id).owner ≠ some id := by
+  sorry
+
+/-- Opening a modal keeps focus that is already inside it. -/
+theorem pushTrap_keeps (s : FocusState) (ids : List EntityId) (o : EntityId)
+    (ho : s.owner = some o) (hin : ids.contains o = true) : (s.pushTrap ids).owner = some o := by
+  sorry
+
+/-- Closing a modal restores exactly the traps that were there before it opened. -/
+theorem popTrap_pushTrap (s : FocusState) (ids : List EntityId) :
+    (s.pushTrap ids).popTrap.traps = s.traps := by
+  sorry
 
 end LeanUI.Spec

@@ -219,6 +219,11 @@ theorem alloc_disjoint (a a₁ a₂ : Atlas) (w₁ h₁ w₂ h₂ : Nat) (r₁ r
   exact alloc_fresh a₁ a₂ w₂ h₂ r₂ (alloc_wf a a₁ w₁ h₁ r₁ hwf e₁) e₂ px py c2
     (alloc_owns a a₁ w₁ h₁ r₁ hwf e₁ px py c1)
 
+/-- Liveness: a glyph that fits the width and the remaining rows is always placed. -/
+theorem alloc_live (a : Atlas) (w h : Nat) (hwf : WF a) (hw0 : 0 < w) (hw : w ≤ a.width)
+    (hh0 : 0 < h) (hroom : a.nextY + h ≤ a.height) : (a.alloc w h).isSome = true := by
+  sorry
+
 /-- Cache soundness on a trace: if every entry was produced by `f` on a key of the trace,
 and the hash is collision-free on that trace, a hit returns `f k`. -/
 theorem cache_lookup_sound {α β : Type} (hash : α → UInt64) (f : α → β) (keys : List α)
