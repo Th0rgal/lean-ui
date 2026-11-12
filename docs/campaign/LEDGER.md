@@ -55,7 +55,7 @@ remains pending verified transfer. No historical ledger preservation is claimed.
 - Controller REJECTED this candidate for gate 1. Build success is not acceptance.
   Failed commit and raw audit evidence remain preserved unchanged.
 
-## Separate remediation: verification passed, acceptance pending
+## Separate remediation: scoped MECHANICAL GATE 1 PASS
 
 - Local remediation commit:
   `aa7969a6a9e27474018eabf1404edba772f8a15e`.
@@ -68,9 +68,18 @@ remains pending verified transfer. No historical ledger preservation is claimed.
   zero trivial/vacuous specifications and no stub-definition findings.
 - `#print axioms` checks for all 76 public spec theorems: exit 0, dependencies
   limited to `propext`, `Quot.sound`, and `Classical.choice`, or none.
-- Full diff and raw audit JSON were exported for independent byte verification.
-  Export is not independent validation or controller acceptance. No policy,
-  auditor, judge, or kernel changes were made by this remediation.
+- Independent gate mission `d43fcbc3-946f-4341-be10-0bae98ffcd43` reran the
+  exact audit: exit 0, 94/94 tight; clean independent build compiled all 8 modules.
+  Full artifact hashes were checked; forbidden axioms and `native_decide`: zero.
+- Controller read the independent FINAL raw receipts and accepted the content
+  remedy. Scoped decision: MECHANICAL GATE 1 PASS for exact remediation commit
+  `aa7969a6a9e27474018eabf1404edba772f8a15e`, tree
+  `c889ba3ccab093d9aa9c4e703da39cc1d9e8a328` only.
+- Audit witness labels `heuristic_unverified` are not semantic or visual proof.
+  This decision is not all-campaign PASS, row closure, or pushed progress.
+  No policy, auditor, judge, or kernel changes were made by this remediation.
+- C gate is absent: independent `wc -l c/*.c` exited 1 because no matching C
+  source files exist. Visual, benchmark, and Orb CI gates remain unrun.
 
 ## Campaign blockers and controller status
 
@@ -78,6 +87,16 @@ remains pending verified transfer. No historical ledger preservation is claimed.
 - REVIEW_1 rows 1 and 21: OPEN; rows 24 and 25: partial.
 - Freeze status: FREEZE_BLOCKED. No campaign PASS is claimed.
 - Historical W0 ledger transfer remains BLOCKED; trusted relay remains absent.
+- Current VM probes: `pkg-config` finds GTK3 3.24.41 and WebKit2GTK 4.1 2.52.3,
+  but GTK4, WebKitGTK 6.0, and Vulkan development metadata are missing (exit 1).
+  `weston`, `sway`, `Hyprland`, `grim`, and `vulkaninfo` are absent from PATH.
+  `sudo -n true` exits 1: the no-new-privileges flag prevents root escalation.
+  These measurements do not establish rendering capability or complete W0.
+- Baseline inconsistency requires controller/operator resolution, not relaxation:
+  W0_GOLDENS and ORCHESTRATOR pin upstream `b043d5572`, GTK3 plus
+  `webkit2gtk-4.1`; AGENTS final benchmark gate instead names GTK4 plus
+  WebKitGTK. Neither baseline nor final gate is silently substituted.
 - No token delivery or push occurred. Receipt-only and local commits are not
-  published progress. Artifact bytes require independent verification before
-  source VM release, subject to the unchanged TTL; no extension was requested.
+  published progress. Local git bundle and full raw author/gate evidence packaging
+  with manifest hashes is not durable harvest. Trusted relay remains required;
+  VM retained with no lifecycle changes or requested TTL extension.
