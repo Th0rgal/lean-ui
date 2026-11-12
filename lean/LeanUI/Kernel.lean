@@ -29,6 +29,52 @@ def flexMain (avail : Nat) (items : List FlexItem) : List Nat :=
   let extra := distribute free grows.sum 0 grows
   (items.zip extra).map fun (it, e) => clampNat it.minMain it.maxMain (it.basis + e)
 
+/-- Shrink sizes for one overflowing flex line: distributes deficit `(bases.sum - avail)` across `weights`, clamped to `minMain`. -/
+def flexApplyShrink : List FlexItem → List Nat → List Nat
+  | [], _ => []
+  | _, [] => []
+  | it :: its, c :: cs => clampNat it.minMain it.maxMain (it.basis - c) :: flexApplyShrink its cs
+
+def flexShrink (avail : Nat) (items : List FlexItem) (weights : List Nat) : List Nat :=
+  let bases := items.map (·.basis)
+  let deficit := bases.sum - avail
+  let cut := distribute deficit weights.sum 0 weights
+  flexApplyShrink items cut
+
+/-- Freeze items whose grow share hits `maxMain`, then redistribute the remaining space across the unfrozen items. -/
+def flexFreezeBase : List FlexItem → List Bool → List Nat
+  | [], _ => []
+  | _, [] => []
+  | it :: its, f :: fs => (if f then it.maxMain else it.basis) :: flexFreezeBase its fs
+
+def flexFreezeGrow : List FlexItem → List Bool → List Nat
+  | [], _ => []
+  | _, [] => []
+  | it :: its, f :: fs => (if f then 0 else it.grow) :: flexFreezeGrow its fs
+
+def flexApplyRedistribute : List FlexItem → List Bool → List Nat → List Nat
+  | [], _, _ => []
+  | _, [], _ => []
+  | _, _, [] => []
+  | it :: its, f :: fs, e :: es =>
+    clampNat it.minMain it.maxMain ((if f then it.maxMain else it.basis) + e) ::
+      flexApplyRedistribute its fs es
+
+def flexRedistribute (avail : Nat) (items : List FlexItem) (frozen : List Bool) : List Nat :=
+  let bases1 := flexFreezeBase items frozen
+  let grows1 := flexFreezeGrow items frozen
+  let free1 := avail - bases1.sum
+  let extra1 := distribute free1 grows1.sum 0 grows1
+  flexApplyRedistribute items frozen extra1
+
+def flexMainClamped (avail : Nat) (items : List FlexItem) : List Nat :=
+  let bases := items.map (·.basis)
+  let grows := items.map (·.grow)
+  let free0 := avail - bases.sum
+  let extra0 := distribute free0 grows.sum 0 grows
+  let frozen := (items.zip extra0).map fun (it, e) => it.maxMain ≤ it.basis + e
+  flexRedistribute avail items frozen
+
 /-! ## Device-pixel rounding -/
 
 /-- Round a logical `Sub` coordinate to the nearest device pixel at `scale120` (ties up). -/
@@ -142,6 +188,29 @@ def alloc (a : Atlas) (w h : Nat) : Option (Rect × Atlas) :=
         some ({ x := 0, y := a.nextY, w := w, h := h },
               { a with shelves := a.shelves ++ [s], nextY := a.nextY + h })
       else none
+
+/-- Clear all shelves while preserving atlas dimensions. -/
+@[inline] def reset (a : Atlas) : Atlas :=
+  { width := a.width, height := a.height, shelves := [], nextY := 0 }
+
+/-- Allocate a `w × h` glyph surrounded by `pad` guard texels on the right and bottom.
+Returns the inner `w × h` glyph rect and the updated atlas; the `pad` border is reserved in the shelf. -/
+def allocPadded (a : Atlas) (pad w h : Nat) : Option (Rect × Atlas) :=
+  if w = 0 ∨ h = 0 then none else
+    (a.alloc (w + pad) (h + pad)).map fun (r, a') =>
+      ({ x := r.x, y := r.y, w := w, h := h }, a')
+
+/-- Allocate across a page list: places in the first page with room, or appends a fresh `pw × ph` page. -/
+def allocPages (pw ph w h : Nat) : List Atlas → Option (Nat × Rect × List Atlas)
+  | [] =>
+    match ({ width := pw, height := ph } : Atlas).alloc w h with
+    | some (r, a') => some (0, r, [a'])
+    | none => none
+  | a :: rest =>
+    match a.alloc w h with
+    | some (r, a') => some (0, r, a' :: rest)
+    | none =>
+      (allocPages pw ph w h rest).map fun (idx, r, rest') => (idx + 1, r, a :: rest')
 
 end Atlas
 

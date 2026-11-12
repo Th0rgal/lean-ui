@@ -17,6 +17,28 @@ theorem distributeNaive_leaks : (distributeNaive 10 3 [1, 1, 1]).sum ≠ 10 := b
 theorem distribute_same_input_conserves : (distribute 10 3 0 [1, 1, 1]).sum = 10 := by
   decide
 
+/-- When a child's `maxMain` binds, single-pass `flexMain` loses the clamped surplus;
+freeze-and-redistribute `flexMainClamped` hands it to the remaining growing children. -/
+theorem flexMain_clamp_loses_space_negWitness :
+    let items : List FlexItem := [
+      { basis := 0, grow := 1, minMain := 0, maxMain := 30 },
+      { basis := 0, grow := 1, minMain := 0, maxMain := 100 }
+    ]
+    (flexMain 100 items).sum = 80 ∧ (flexMainClamped 100 items).sum = 100 ∧
+      flexMainClamped 100 items = [30, 70] := by
+  decide
+
+/-- Mutant: ignore overflow and keep basis sizes without shrinking. -/
+def flexNoShrink (items : List FlexItem) : List Nat := items.map (·.basis)
+
+theorem flexNoShrink_overflows_negWitness :
+    let items : List FlexItem := [
+      { basis := 60, grow := 0, minMain := 10, maxMain := 100 },
+      { basis := 60, grow := 0, minMain := 10, maxMain := 100 }
+    ]
+    (flexShrink 100 items [1, 1]).sum = 100 ∧ (flexNoShrink items).sum > 100 := by
+  decide
+
 /-- Mutant: round position and size independently (opens seams at fractional scales). -/
 def roundRectBySize (scale120 : Nat) (r : Rect) : Rect :=
   { x := roundDev scale120 r.x, y := roundDev scale120 r.y,
@@ -69,6 +91,37 @@ theorem allocNoAdvance_overlaps :
     { x := 0, y := 0, w := 8, h := 8 },
     { width := 64, height := 64, shelves := [{ y := 0, h := 8, used := 0 }], nextY := 8 },
     by decide, by decide, by decide, by decide⟩
+
+/-- Without padding, two adjacent allocations touch (`r₁.right = r₂.x`); `allocPadded` separates them by `pad` texels. -/
+theorem allocUnpadded_abuts_negWitness :
+    let a0 : Atlas := { width := 64, height := 64 }
+    ∃ r₁ a₁ r₂ a₂ p₁ b₁ p₂ b₂,
+      a0.alloc 8 8 = some (r₁, a₁) ∧ a₁.alloc 8 8 = some (r₂, a₂) ∧ r₁.right = r₂.x ∧
+      a0.allocPadded 1 8 8 = some (p₁, b₁) ∧ b₁.allocPadded 1 8 8 = some (p₂, b₂) ∧
+      p₁.right + 1 = p₂.x := by
+  exact ⟨{ x := 0, y := 0, w := 8, h := 8 },
+    { width := 64, height := 64, shelves := [{ y := 0, h := 8, used := 8 }], nextY := 8 },
+    { x := 8, y := 0, w := 8, h := 8 },
+    { width := 64, height := 64, shelves := [{ y := 0, h := 8, used := 16 }], nextY := 8 },
+    { x := 0, y := 0, w := 8, h := 8 },
+    { width := 64, height := 64, shelves := [{ y := 0, h := 9, used := 9 }], nextY := 9 },
+    { x := 9, y := 0, w := 8, h := 8 },
+    { width := 64, height := 64, shelves := [{ y := 0, h := 9, used := 18 }], nextY := 9 },
+    by decide, by decide, by decide, by decide, by decide, by decide⟩
+
+/-- Mutant: reset that clears `shelves` but forgets to rewind `nextY`. -/
+def resetNoRewind (a : Atlas) : Atlas := { a with shelves := [] }
+
+theorem resetNoRewind_exhausts_negWitness :
+    let full : Atlas := { width := 8, height := 8, shelves := [{ y := 0, h := 8, used := 8 }], nextY := 8 }
+    (resetNoRewind full).alloc 8 8 = none ∧ (full.reset.alloc 8 8).isSome = true := by
+  decide
+
+/-- Single-page `alloc` fails once the page is full, whereas `allocPages` spills onto a new page. -/
+theorem allocSinglePage_full_negWitness :
+    let full : Atlas := { width := 8, height := 8, shelves := [{ y := 0, h := 8, used := 8 }], nextY := 8 }
+    full.alloc 8 8 = none ∧ (Atlas.allocPages 8 8 8 8 [full]).isSome = true := by
+  decide
 
 /-- Without `CollisionFreeOn`, the cache contract is false: a constant hash serves the wrong value. -/
 theorem cache_unsound_on_collision :

@@ -229,6 +229,159 @@ theorem alloc_live (a : Atlas) (w h : Nat) (hw0 : 0 < w) (hw : w ≤ a.width)
   | some p => rfl
   | none => simp [hroom]
 
+theorem reset_wf (a : Atlas) : WF a.reset := by
+  exact wf_empty a.width a.height
+
+theorem reset_clears_owns (a : Atlas) (px py : Nat) : ¬ Owns a.reset px py := by
+  rintro ⟨s, hs, _⟩
+  cases hs
+
+theorem reset_preserves_dims (a b : Atlas) :
+    a.reset = b.reset ↔ a.width = b.width ∧ a.height = b.height := by
+  simp [Atlas.reset]
+
+private theorem allocPadded_unfold (a a' : Atlas) (pad w h : Nat) (r : Rect)
+    (h₁ : a.allocPadded pad w h = some (r, a')) :
+    0 < w ∧ 0 < h ∧ ∃ r0, a.alloc (w + pad) (h + pad) = some (r0, a') ∧
+      r = { x := r0.x, y := r0.y, w := w, h := h } := by
+  unfold Atlas.allocPadded at h₁
+  by_cases hg : w = 0 ∨ h = 0
+  · simp [hg] at h₁
+  · simp only [hg, ite_false] at h₁
+    cases ha : a.alloc (w + pad) (h + pad) with
+    | none => simp [ha] at h₁
+    | some p =>
+      obtain ⟨r0, a0⟩ := p
+      simp [ha] at h₁
+      obtain ⟨hr, ha'⟩ := h₁
+      exact ⟨by omega, by omega, r0, by rw [← ha'], hr.symm⟩
+
+theorem allocPadded_wf (a a' : Atlas) (pad w h : Nat) (r : Rect) (hwf : WF a)
+    (h₁ : a.allocPadded pad w h = some (r, a')) : WF a' := by
+  obtain ⟨_, _, r0, ha, _⟩ := allocPadded_unfold a a' pad w h r h₁
+  exact alloc_wf a a' (w + pad) (h + pad) r0 hwf ha
+
+theorem allocPadded_size (a a' : Atlas) (pad w h : Nat) (r : Rect)
+    (h₁ : a.allocPadded pad w h = some (r, a')) : r.w = w ∧ r.h = h := by
+  obtain ⟨_, _, r0, _, hr⟩ := allocPadded_unfold a a' pad w h r h₁
+  subst hr
+  exact ⟨rfl, rfl⟩
+
+/-- Padded allocation reserves the `pad` guard band around the returned glyph rect, so no later
+allocation can place a texel inside `(w + pad) × (h + pad)`. -/
+theorem allocPadded_guard_owns (a a' : Atlas) (pad w h : Nat) (r : Rect) (hwf : WF a)
+    (h₁ : a.allocPadded pad w h = some (r, a')) (px py : Nat)
+    (hin : Rect.contains { x := r.x, y := r.y, w := (w + pad : Nat), h := (h + pad : Nat) } px py = true) :
+    Owns a' px py := by
+  obtain ⟨_, _, r0, ha, hr⟩ := allocPadded_unfold a a' pad w h r h₁
+  obtain ⟨hw0, hh0⟩ := alloc_size a a' (w + pad) (h + pad) r0 ha
+  have hrx : r.x = r0.x := by rw [hr]
+  have hry : r.y = r0.y := by rw [hr]
+  have heq : ({ x := r.x, y := r.y, w := (w + pad : Nat), h := (h + pad : Nat) } : Rect) = r0 := by
+    cases r0
+    simp only [Rect.mk.injEq] at hw0 hh0 hrx hry ⊢
+    exact ⟨hrx, hry, hw0.symm, hh0.symm⟩
+  rw [heq] at hin
+  exact alloc_owns a a' (w + pad) (h + pad) r0 hwf ha px py hin
+
+theorem allocPadded_disjoint_guard (a a₁ a₂ : Atlas) (pad w₁ h₁ w₂ h₂ : Nat) (r₁ r₂ : Rect)
+    (hwf : WF a)
+    (e₁ : a.allocPadded pad w₁ h₁ = some (r₁, a₁))
+    (e₂ : a₁.allocPadded pad w₂ h₂ = some (r₂, a₂)) (px py : Nat) :
+    ¬ (Rect.contains { x := r₁.x, y := r₁.y, w := (w₁ + pad : Nat), h := (h₁ + pad : Nat) } px py = true ∧
+       Rect.contains { x := r₂.x, y := r₂.y, w := (w₂ + pad : Nat), h := (h₂ + pad : Nat) } px py = true) := by
+  rintro ⟨c1, c2⟩
+  obtain ⟨_, _, r20, ha2, hr2⟩ := allocPadded_unfold a₁ a₂ pad w₂ h₂ r₂ e₂
+  obtain ⟨hw20, hh20⟩ := alloc_size a₁ a₂ (w₂ + pad) (h₂ + pad) r20 ha2
+  have hrx : r₂.x = r20.x := by rw [hr2]
+  have hry : r₂.y = r20.y := by rw [hr2]
+  have heq : ({ x := r₂.x, y := r₂.y, w := (w₂ + pad : Nat), h := (h₂ + pad : Nat) } : Rect) = r20 := by
+    cases r20
+    simp only [Rect.mk.injEq] at hw20 hh20 hrx hry ⊢
+    exact ⟨hrx, hry, hw20.symm, hh20.symm⟩
+  rw [heq] at c2
+  exact alloc_fresh a₁ a₂ (w₂ + pad) (h₂ + pad) r20 (allocPadded_wf a a₁ pad w₁ h₁ r₁ hwf e₁) ha2 px py c2
+    (allocPadded_guard_owns a a₁ pad w₁ h₁ r₁ hwf e₁ px py c1)
+
+/-- Multi-page liveness: a glyph fitting page dimensions `pw × ph` always succeeds on any page list. -/
+theorem allocPages_live (pw ph w h : Nat) (pages : List Atlas)
+    (hw0 : 0 < w) (hw : w ≤ pw) (hh0 : 0 < h) (hh : h ≤ ph) :
+    (Atlas.allocPages pw ph w h pages).isSome = true := by
+  induction pages with
+  | nil =>
+    unfold Atlas.allocPages
+    have hl := alloc_live { width := pw, height := ph } w h hw0 hw hh0 (by simp [hh])
+    cases ha : ({ width := pw, height := ph } : Atlas).alloc w h with
+    | none => simp [ha] at hl
+    | some p => rfl
+  | cons a rest ih =>
+    unfold Atlas.allocPages
+    cases ha : a.alloc w h with
+    | some p => rfl
+    | none =>
+      cases hp : Atlas.allocPages pw ph w h rest with
+      | none => simp [hp] at ih
+      | some q => rfl
+
+/-- Multi-page soundness: the returned page index points to a page in the updated list that owns the slot. -/
+theorem allocPages_sound (pw ph w h : Nat) (pages pages' : List Atlas) (idx : Nat) (r : Rect)
+    (hwf : ∀ a, a ∈ pages → WF a)
+    (hp : Atlas.allocPages pw ph w h pages = some (idx, r, pages')) :
+    idx < pages'.length ∧ r.w = w ∧ r.h = h ∧ (∀ a, a ∈ pages' → WF a) ∧
+      ∀ (px py : Nat), r.contains px py = true → ∃ a', pages'[idx]? = some a' ∧ Owns a' px py := by
+  induction pages generalizing pages' idx with
+  | nil =>
+    unfold Atlas.allocPages at hp
+    cases ha : ({ width := pw, height := ph } : Atlas).alloc w h with
+    | none => simp [ha] at hp
+    | some p =>
+      obtain ⟨r0, a'⟩ := p
+      simp [ha] at hp
+      obtain ⟨rfl, rfl, rfl⟩ := hp
+      have hwf' := alloc_wf _ _ w h r0 (wf_empty pw ph) ha
+      have hsz := alloc_size _ _ w h r0 ha
+      refine ⟨by simp, hsz.1, hsz.2, ?_, ?_⟩
+      · intro x hx
+        simp at hx
+        subst hx
+        exact hwf'
+      · intro px py hin
+        exact ⟨a', rfl, alloc_owns _ _ w h r0 (wf_empty pw ph) ha px py hin⟩
+  | cons a rest ih =>
+    unfold Atlas.allocPages at hp
+    cases ha : a.alloc w h with
+    | some p =>
+      obtain ⟨r0, a'⟩ := p
+      simp [ha] at hp
+      obtain ⟨rfl, rfl, rfl⟩ := hp
+      have hwfa := hwf a (List.mem_cons_self ..)
+      have hwf' := alloc_wf _ _ w h r0 hwfa ha
+      have hsz := alloc_size _ _ w h r0 ha
+      refine ⟨by simp, hsz.1, hsz.2, ?_, ?_⟩
+      · intro x hx
+        rcases List.mem_cons.mp hx with rfl | hx
+        · exact hwf'
+        · exact hwf x (List.mem_cons_of_mem _ hx)
+      · intro px py hin
+        exact ⟨a', rfl, alloc_owns _ _ w h r0 hwfa ha px py hin⟩
+    | none =>
+      cases hrest : Atlas.allocPages pw ph w h rest with
+      | none => simp [ha, hrest] at hp
+      | some q =>
+        obtain ⟨idx0, r0, rest'⟩ := q
+        simp [ha, hrest] at hp
+        obtain ⟨hidx, hr, hpages⟩ := hp
+        subst hidx hr hpages
+        obtain ⟨hlt, hrw, hrh, hwfr, hown⟩ :=
+          ih rest' idx0 (fun x hx => hwf x (List.mem_cons_of_mem _ hx)) hrest
+        refine ⟨by simp [hlt], hrw, hrh, ?_, ?_⟩
+        · intro x hx
+          rcases List.mem_cons.mp hx with rfl | hx
+          · exact hwf x (List.mem_cons_self ..)
+          · exact hwfr x hx
+        · intro px py hin
+          simpa using hown px py hin
+
 /-- Cache soundness on a trace: if every entry was produced by `f` on a key of the trace,
 and the hash is collision-free on that trace, a hit returns `f k`. -/
 theorem cache_lookup_sound {α β : Type} (hash : α → UInt64) (f : α → β) (keys : List α)

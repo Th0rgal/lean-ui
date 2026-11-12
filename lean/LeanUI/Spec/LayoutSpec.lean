@@ -107,6 +107,197 @@ theorem flexMain_fills (avail : Nat) (items : List FlexItem)
   rw [this, hs]
   omega
 
+private theorem flexApplyShrink_length (items : List FlexItem) (cs : List Nat)
+    (h : cs.length = items.length) :
+    (flexApplyShrink items cs).length = items.length := by
+  induction items generalizing cs with
+  | nil => cases cs <;> simp [flexApplyShrink]
+  | cons it its ih =>
+    cases cs with
+    | nil => simp at h
+    | cons c cs => simp [flexApplyShrink, ih cs (by simpa using h)]
+
+theorem flexShrink_length (avail : Nat) (items : List FlexItem) (weights : List Nat)
+    (hlen : weights.length = items.length) :
+    (flexShrink avail items weights).length = items.length := by
+  unfold flexShrink
+  exact flexApplyShrink_length items _ (by rw [distribute_length, hlen])
+
+private theorem zip_clamp_shrink_bounds (items : List FlexItem) (cs : List Nat)
+    (h : ∀ it, it ∈ items → it.minMain ≤ it.maxMain) :
+    ∀ p, p ∈ items.zip (flexApplyShrink items cs) →
+      p.1.minMain ≤ p.2 ∧ p.2 ≤ p.1.maxMain := by
+  induction items generalizing cs with
+  | nil => intro p hp; simp [flexApplyShrink] at hp
+  | cons it its ih =>
+    cases cs with
+    | nil => intro p hp; simp [flexApplyShrink] at hp
+    | cons c cs =>
+      intro p hp
+      simp only [flexApplyShrink, List.zip_cons_cons, List.mem_cons] at hp
+      rcases hp with rfl | hp
+      · exact clampNat_bounds _ _ _ (h it (List.mem_cons_self ..))
+      · exact ih cs (fun x hx => h x (List.mem_cons_of_mem _ hx)) p hp
+
+theorem flexShrink_bounds (avail : Nat) (items : List FlexItem) (weights : List Nat)
+    (h : ∀ it, it ∈ items → it.minMain ≤ it.maxMain) :
+    ∀ p, p ∈ items.zip (flexShrink avail items weights) →
+      p.1.minMain ≤ p.2 ∧ p.2 ≤ p.1.maxMain := by
+  exact zip_clamp_shrink_bounds items _ h
+
+private theorem zip_clamp_shrink_sum (items : List FlexItem) (cs : List Nat)
+    (hlen : cs.length = items.length)
+    (hfit : ∀ p, p ∈ items.zip cs → p.1.minMain + p.2 ≤ p.1.basis ∧ p.1.basis ≤ p.1.maxMain) :
+    (flexApplyShrink items cs).sum + cs.sum = (items.map (·.basis)).sum := by
+  induction items generalizing cs with
+  | nil => cases cs <;> simp_all [flexApplyShrink]
+  | cons it its ih =>
+    cases cs with
+    | nil => simp at hlen
+    | cons c cs =>
+      have hlen' : cs.length = its.length := by simpa using hlen
+      simp only [flexApplyShrink, List.map_cons, List.sum_cons]
+      have ht := ih cs hlen' (fun p hp => hfit p (List.mem_cons_of_mem _ hp))
+      obtain ⟨h0, h1⟩ := hfit (it, c) (List.mem_cons_self ..)
+      simp only at h0 h1
+      rw [clampNat_id _ _ _ (by omega) (by omega)]
+      omega
+
+theorem flexShrink_fills (avail : Nat) (items : List FlexItem) (weights : List Nat)
+    (hlen : weights.length = items.length)
+    (hover : avail ≤ (items.map (·.basis)).sum)
+    (hsw : 0 < weights.sum)
+    (hfit : ∀ p, p ∈ items.zip (distribute ((items.map (·.basis)).sum - avail) weights.sum 0 weights) →
+      p.1.minMain + p.2 ≤ p.1.basis ∧ p.1.basis ≤ p.1.maxMain) :
+    (flexShrink avail items weights).sum = avail := by
+  have hs := distribute_conserves ((items.map (·.basis)).sum - avail) weights hsw
+  have hl : (distribute ((items.map (·.basis)).sum - avail) weights.sum 0 weights).length
+      = items.length := by rw [distribute_length, hlen]
+  have hsum := zip_clamp_shrink_sum items _ hl hfit
+  unfold flexShrink
+  simp only []
+  rw [hs] at hsum
+  omega
+
+private theorem flexFreezeGrow_length (items : List FlexItem) (frozen : List Bool)
+    (h : frozen.length = items.length) :
+    (flexFreezeGrow items frozen).length = items.length := by
+  induction items generalizing frozen with
+  | nil => cases frozen <;> simp [flexFreezeGrow]
+  | cons it its ih =>
+    cases frozen with
+    | nil => simp at h
+    | cons f fs =>
+      simp [flexFreezeGrow, ih fs (by simpa using h)]
+
+private theorem flexApplyRedistribute_length (items : List FlexItem) (frozen : List Bool) (es : List Nat)
+    (hf : frozen.length = items.length) (he : es.length = items.length) :
+    (flexApplyRedistribute items frozen es).length = items.length := by
+  induction items generalizing frozen es with
+  | nil => cases frozen <;> cases es <;> simp [flexApplyRedistribute]
+  | cons it its ih =>
+    cases frozen with
+    | nil => simp at hf
+    | cons f fs =>
+      cases es with
+      | nil => simp at he
+      | cons e es =>
+        simp [flexApplyRedistribute, ih fs es (by simpa using hf) (by simpa using he)]
+
+theorem flexRedistribute_length (avail : Nat) (items : List FlexItem) (frozen : List Bool)
+    (hlen : frozen.length = items.length) :
+    (flexRedistribute avail items frozen).length = items.length := by
+  unfold flexRedistribute
+  exact flexApplyRedistribute_length items frozen _ hlen
+    (by rw [distribute_length, flexFreezeGrow_length items frozen hlen])
+
+theorem flexMainClamped_length (avail : Nat) (items : List FlexItem) :
+    (flexMainClamped avail items).length = items.length := by
+  unfold flexMainClamped
+  exact flexRedistribute_length avail items _ (by simp [distribute_length])
+
+private theorem zip_redistribute_bounds (items : List FlexItem) (frozen : List Bool) (es : List Nat)
+    (h : ∀ it, it ∈ items → it.minMain ≤ it.maxMain) :
+    ∀ p, p ∈ items.zip (flexApplyRedistribute items frozen es) →
+      p.1.minMain ≤ p.2 ∧ p.2 ≤ p.1.maxMain := by
+  induction items generalizing frozen es with
+  | nil => intro p hp; simp [flexApplyRedistribute] at hp
+  | cons it its ih =>
+    cases frozen with
+    | nil => intro p hp; simp [flexApplyRedistribute] at hp
+    | cons f fs =>
+      cases es with
+      | nil => intro p hp; simp [flexApplyRedistribute] at hp
+      | cons e es =>
+        intro p hp
+        simp only [flexApplyRedistribute, List.zip_cons_cons, List.mem_cons] at hp
+        rcases hp with rfl | hp
+        · exact clampNat_bounds _ _ _ (h it (List.mem_cons_self ..))
+        · exact ih fs es (fun x hx => h x (List.mem_cons_of_mem _ hx)) p hp
+
+theorem flexRedistribute_bounds (avail : Nat) (items : List FlexItem) (frozen : List Bool)
+    (h : ∀ it, it ∈ items → it.minMain ≤ it.maxMain) :
+    ∀ p, p ∈ items.zip (flexRedistribute avail items frozen) →
+      p.1.minMain ≤ p.2 ∧ p.2 ≤ p.1.maxMain := by
+  exact zip_redistribute_bounds items frozen _ h
+
+theorem flexMainClamped_bounds (avail : Nat) (items : List FlexItem)
+    (h : ∀ it, it ∈ items → it.minMain ≤ it.maxMain) :
+    ∀ p, p ∈ items.zip (flexMainClamped avail items) →
+      p.1.minMain ≤ p.2 ∧ p.2 ≤ p.1.maxMain := by
+  exact flexRedistribute_bounds avail items _ h
+
+private theorem zip_redistribute_sum (avail free total acc : Nat) (items : List FlexItem)
+    (frozen : List Bool)
+    (hf : frozen.length = items.length)
+    (hb : (flexFreezeBase items frozen).sum +
+      (distribute free total acc (flexFreezeGrow items frozen)).sum ≤ avail)
+    (hvalid : ∀ it, it ∈ items → it.minMain ≤ it.maxMain)
+    (hfree : ∀ p, p ∈ items.zip frozen → p.2 = false → p.1.minMain = 0 ∧ avail ≤ p.1.maxMain) :
+    (flexApplyRedistribute items frozen
+      (distribute free total acc (flexFreezeGrow items frozen))).sum
+      = (flexFreezeBase items frozen).sum +
+        (distribute free total acc (flexFreezeGrow items frozen)).sum := by
+  induction items generalizing frozen acc with
+  | nil => cases frozen <;> simp [flexFreezeBase, flexFreezeGrow, distribute, flexApplyRedistribute]
+  | cons it its ih =>
+    cases frozen with
+    | nil => simp at hf
+    | cons f fs =>
+      have hf' : fs.length = its.length := by simpa using hf
+      simp only [flexFreezeBase, flexFreezeGrow, distribute, flexApplyRedistribute, List.sum_cons] at hb ⊢
+      have ht := ih (acc + if f = true then 0 else it.grow) fs hf' (by omega)
+        (fun x hx => hvalid x (List.mem_cons_of_mem _ hx))
+        (fun p hp hp2 => hfree p (List.mem_cons_of_mem _ hp) hp2)
+      cases f
+      · obtain ⟨h0, h1⟩ := hfree (it, false) (List.mem_cons_self ..) rfl
+        simp only at h0 h1
+        simp only [Bool.false_eq_true, ite_false] at hb ht ⊢
+        rw [ht, clampNat_id _ _ _ (by omega) (by omega)]
+        omega
+      · have hv := hvalid it (List.mem_cons_self ..)
+        simp only [ite_true, Nat.add_zero, Nat.sub_self] at hb ht ⊢
+        rw [ht, clampNat_id _ _ _ hv (by omega)]
+        omega
+
+/-- When frozen items are clamped at `maxMain` and unfrozen items have room to absorb the rest,
+redistribution fills `avail` exactly. -/
+theorem flexMain_fills_clamped (avail : Nat) (items : List FlexItem) (frozen : List Bool)
+    (hlen : frozen.length = items.length)
+    (hfit : (flexFreezeBase items frozen).sum ≤ avail)
+    (hgrow : 0 < (flexFreezeGrow items frozen).sum)
+    (hvalid : ∀ it, it ∈ items → it.minMain ≤ it.maxMain)
+    (hfree : ∀ p, p ∈ items.zip frozen → p.2 = false → p.1.minMain = 0 ∧ avail ≤ p.1.maxMain) :
+    (flexRedistribute avail items frozen).sum = avail := by
+  have hs := distribute_conserves (avail - (flexFreezeBase items frozen).sum)
+    (flexFreezeGrow items frozen) hgrow
+  have hsum := zip_redistribute_sum avail (avail - (flexFreezeBase items frozen).sum)
+    (flexFreezeGrow items frozen).sum 0 items frozen hlen (by rw [hs]; omega) hvalid hfree
+  unfold flexRedistribute
+  simp only []
+  rw [hsum, hs]
+  omega
+
 theorem roundDev_mono (scale120 : Nat) (a b : Int) (h : a ≤ b) :
     roundDev scale120 a ≤ roundDev scale120 b := by
   unfold roundDev
