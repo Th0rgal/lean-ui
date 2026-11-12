@@ -1,0 +1,12 @@
+.lake/
+build/
+target/
+result
+result-*
+*.o
+*.a
+*.so
+*.dylib
+*.spv
+.direnv/
+.orb-dev/

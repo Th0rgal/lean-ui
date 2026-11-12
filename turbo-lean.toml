@@ -1,0 +1,9 @@
+# turbo-lean repository configuration (`audit-spec` v2.1 Anti-Reward-Hacking Policy)
+
+[audit_spec]
+policy = "default"
+reject_conjunct_tautologies = true
+reject_definitional_lowering_tautology = true
+reject_identity_stubs = true
+reject_unused_param_defs = true
+reject_size_only_parsers = true
