@@ -220,9 +220,14 @@ theorem alloc_disjoint (a a₁ a₂ : Atlas) (w₁ h₁ w₂ h₂ : Nat) (r₁ r
     (alloc_owns a a₁ w₁ h₁ r₁ hwf e₁ px py c1)
 
 /-- Liveness: a glyph that fits the width and the remaining rows is always placed. -/
-theorem alloc_live (a : Atlas) (w h : Nat) (hwf : WF a) (hw0 : 0 < w) (hw : w ≤ a.width)
+theorem alloc_live (a : Atlas) (w h : Nat) (hw0 : 0 < w) (hw : w ≤ a.width)
     (hh0 : 0 < h) (hroom : a.nextY + h ≤ a.height) : (a.alloc w h).isSome = true := by
-  sorry
+  unfold Atlas.alloc
+  have hg : ¬ (w = 0 ∨ h = 0 ∨ w > a.width) := by omega
+  simp only [hg, ite_false]
+  cases hf : Atlas.fitShelf a.width w h a.shelves with
+  | some p => rfl
+  | none => simp [hroom]
 
 /-- Cache soundness on a trace: if every entry was produced by `f` on a key of the trace,
 and the hash is collision-free on that trace, a hit returns `f k`. -/

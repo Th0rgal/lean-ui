@@ -139,23 +139,62 @@ theorem roundRect_ordered (scale120 : Nat) (r : Rect) (hw : 0 ≤ r.w) (hh : 0 �
   · show roundDev scale120 r.y ≤ roundDev scale120 r.y + (roundDev scale120 r.bottom - roundDev scale120 r.y)
     omega
 
+private theorem share_step (free total acc g : Nat) (ht : 0 < total) :
+    free * g / total ≤ cumShare free total (acc + g) - cumShare free total acc ∧
+      cumShare free total (acc + g) - cumShare free total acc ≤ free * g / total + 1 := by
+  have hne : total ≠ 0 := by omega
+  simp only [cumShare, hne, ite_false, Nat.mul_add]
+  rw [Nat.add_div ht]
+  generalize free * acc / total = qa
+  generalize free * g / total = qg
+  split <;> omega
+
 /-- Proportionality: every child gets its exact proportional share, rounded down or up by
 less than one sub-unit. Rules out handing all free space to one child. -/
 theorem distribute_proportional (free total acc : Nat) (gs : List Nat) (ht : 0 < total) :
     ∀ p, p ∈ gs.zip (distribute free total acc gs) →
       free * p.1 / total ≤ p.2 ∧ p.2 ≤ free * p.1 / total + 1 := by
-  sorry
+  induction gs generalizing acc with
+  | nil => intro p hp; simp [distribute] at hp
+  | cons g gs ih =>
+    intro p hp
+    simp only [distribute, List.zip_cons_cons, List.mem_cons] at hp
+    rcases hp with rfl | hp
+    · exact share_step free total acc g ht
+    · exact ih _ p hp
 
 /-- Rounding error is at most half a device pixel (7680 scaled sub-units per pixel). -/
 theorem roundDev_half_pixel (scale120 : Nat) (v : Int) :
     v * scale120 - 3840 < 7680 * roundDev scale120 v ∧
       7680 * roundDev scale120 v ≤ v * scale120 + 3840 := by
-  sorry
+  simp only [roundDev, show subPerPx * scaleDen = 7680 from rfl]; omega
+
+private theorem contains_iff' (r : Rect) (px py : Int) :
+    r.contains px py = true ↔ r.x ≤ px ∧ px < r.right ∧ r.y ≤ py ∧ py < r.bottom := by
+  simp [Rect.contains, and_assoc]
+
+private theorem floorDev_mono (s : Nat) (a b : Int) (h : a ≤ b) :
+    floorDev s a ≤ floorDev s b := by
+  unfold floorDev
+  exact Int.ediv_le_ediv (by decide) (Int.mul_le_mul_of_nonneg_right h (Int.natCast_nonneg _))
+
+private theorem floor_lt_ceil (s : Nat) (hs : 0 < s) (a b : Int) (h : a < b) :
+    floorDev s a < ceilDev s b := by
+  have h' : a * (s : Int) < b * (s : Int) := Int.mul_lt_mul_of_pos_right h (by omega)
+  simp only [floorDev, ceilDev, show subPerPx * scaleDen = 7680 from rfl]
+  omega
 
 /-- Outward rounding loses nothing: the device pixel under any covered point is covered. -/
 theorem roundRectOut_covers (scale120 : Nat) (hs : 0 < scale120) (r : Rect) (px py : Int)
     (h : r.contains px py = true) :
     (roundRectOut scale120 r).contains (floorDev scale120 px) (floorDev scale120 py) = true := by
-  sorry
+  rw [contains_iff'] at h ⊢
+  obtain ⟨h1, h2, h3, h4⟩ := h
+  have a1 := floorDev_mono scale120 _ _ h1
+  have a2 := floor_lt_ceil scale120 hs _ _ h2
+  have a3 := floorDev_mono scale120 _ _ h3
+  have a4 := floor_lt_ceil scale120 hs _ _ h4
+  simp only [roundRectOut, Rect.right, Rect.bottom] at a2 a4 ⊢
+  omega
 
 end LeanUI.Spec

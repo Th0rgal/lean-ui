@@ -86,6 +86,6 @@ theorem lookupHead_wrong_entry :
     let hash : Nat → UInt64 := fun n => n.toUInt64
     let c : HashCache Nat := (({} : HashCache Nat).insert hash 1 10).insert hash 2 20
     c.lookup hash 1 = some 10 ∧ lookupHead c = some 20 := by
-  sorry
+  decide
 
 end LeanUI.Spec.Mutant

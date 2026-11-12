@@ -92,26 +92,45 @@ theorem hitTest_none_iff (regions : List (EntityId × Rect)) (px py : Int) :
   have := foldl_hit_none px py regions none
   simpa [hitTest] using this
 
+private theorem foldl_hit_skip (px py : Int) :
+    ∀ (regions : List (EntityId × Rect)) (acc : Option EntityId),
+      (∀ e, e ∈ regions → e.2.contains px py = false) →
+      regions.foldl (fun acc (p : EntityId × Rect) =>
+        if p.2.contains px py then some p.1 else acc) acc = acc := by
+  intro regions
+  induction regions with
+  | nil => intro acc _; rfl
+  | cons e rest ih =>
+    intro acc h
+    rw [List.foldl_cons, ih _ (fun e' he' => h e' (List.mem_cons_of_mem _ he'))]
+    simp [h e List.mem_cons_self]
+
 /-- Paint order decides: the last-painted containing region wins, wherever it sits. -/
 theorem hitTest_last_containing (pre post : List (EntityId × Rect)) (id : EntityId) (r : Rect)
     (px py : Int) (h : r.contains px py = true)
     (hpost : ∀ e, e ∈ post → e.2.contains px py = false) :
     hitTest (pre ++ (id, r) :: post) px py = some id := by
-  sorry
+  have e : hitTest (pre ++ (id, r) :: post) px py
+      = (pre ++ (id, r) :: post).foldl (fun acc (p : EntityId × Rect) =>
+        if p.2.contains px py then some p.1 else acc) none := rfl
+  rw [e, List.foldl_append, List.foldl_cons, foldl_hit_skip px py post _ hpost]
+  simp [h]
 
 /-- An open modal refuses focus to anything outside it. -/
 theorem pushTrap_refuses (s : FocusState) (ids : List EntityId) (id : EntityId)
     (h : ids.contains id = false) : ((s.pushTrap ids).request id).owner ≠ some id := by
-  sorry
+  have h' : id ∉ ids := by simpa using h
+  simp [pushTrap, request, admits, h', Option.filter_eq_some_iff]
 
 /-- Opening a modal keeps focus that is already inside it. -/
 theorem pushTrap_keeps (s : FocusState) (ids : List EntityId) (o : EntityId)
     (ho : s.owner = some o) (hin : ids.contains o = true) : (s.pushTrap ids).owner = some o := by
-  sorry
+  have h' : o ∈ ids := by simpa using hin
+  simp [pushTrap, ho, h']
 
 /-- Closing a modal restores exactly the traps that were there before it opened. -/
 theorem popTrap_pushTrap (s : FocusState) (ids : List EntityId) :
     (s.pushTrap ids).popTrap.traps = s.traps := by
-  sorry
+  simp [popTrap, pushTrap]
 
 end LeanUI.Spec

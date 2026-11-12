@@ -16,7 +16,7 @@ Verdict of that reviewer: no false statement; `FREEZE_BLOCKED` on weak contracts
 | 5 | `Damage.add` may over-cover; empty `some` inflates | `union_least`, `DamageWF`, `damage_add_wf` |
 | 6 | `hitTest_topmost` pins only the last element | replaced by `hitTest_last_containing` |
 | 7 | trap stack has no frame law | `pushTrap_refuses`, `pushTrap_keeps`, `popTrap_pushTrap` |
-| 8 | `alloc` has no liveness | `alloc_live` |
+| 8 | `alloc` has no liveness | `alloc_live` (no `WF` hypothesis needed) |
 | 9–13 | Wayland ABI: typed new_id, recorder on event-created proxies, tags, signature, fd ownership | `c/lean_ui.h` revised |
 | 14 | `Event` lacks IME batch, pointer leave, drop, time | constructors appended |
 | 15 | no xkb compose, keymap-dependent mods | `lean_ui_xkb_key` revised |

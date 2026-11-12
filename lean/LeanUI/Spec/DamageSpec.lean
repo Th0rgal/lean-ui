@@ -70,12 +70,24 @@ theorem union_least (a r q : Rect)
     (hay : q.y ≤ a.y) (hry : q.y ≤ r.y) (hab : a.bottom ≤ q.bottom) (hrb : r.bottom ≤ q.bottom) :
     q.x ≤ (a.union r).x ∧ (a.union r).right ≤ q.right ∧
       q.y ≤ (a.union r).y ∧ (a.union r).bottom ≤ q.bottom := by
-  sorry
+  simp only [Rect.union, Rect.right, Rect.bottom] at *; omega
 
 /-- Well-formed damage never stores an empty rect (an empty one would inflate later unions). -/
 def DamageWF (d : Damage) : Prop := ∀ a, d = some a → a.isEmpty = false
 
 theorem damage_add_wf (d : Damage) (r : Rect) (h : DamageWF d) : DamageWF (d.add r) := by
-  sorry
+  intro a ha
+  cases hr : r.isEmpty
+  · cases d with
+    | none =>
+      simp [Damage.add, hr] at ha
+      subst ha; exact hr
+    | some b =>
+      simp [Damage.add, hr] at ha
+      subst ha
+      have hb := h b rfl
+      simp [Rect.isEmpty] at hr hb ⊢
+      simp only [Rect.union, Rect.right, Rect.bottom]; omega
+  · rw [damage_add_empty d r hr] at ha; exact h a ha
 
 end LeanUI.Spec
