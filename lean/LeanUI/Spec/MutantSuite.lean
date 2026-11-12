@@ -88,4 +88,40 @@ theorem lookupHead_wrong_entry :
     c.lookup hash 1 = some 10 ∧ lookupHead c = some 20 := by
   decide
 
+def scrollUnsigned (content viewport offset : Nat) (delta : Int) : Nat :=
+  min (content - viewport) (offset + delta.toNat)
+
+theorem scrollUnsigned_negWitness :
+    scrollStep 100 20 40 (-10) = 30 ∧ scrollUnsigned 100 20 40 (-10) ≠ 30 := by
+  decide
+
+def scrollUnbounded (offset : Nat) (delta : Int) : Nat := ((offset : Int) + delta).toNat
+
+theorem scrollUnbounded_negWitness :
+    scrollStep 100 20 70 30 = 80 ∧ scrollUnbounded 70 30 > 80 := by
+  decide
+
+def bufferFloor (scale120 pixels : Nat) : Nat := pixels * scale120 / scaleDen
+
+theorem bufferFloor_negWitness :
+    bufferSize 180 1 = 2 ∧ bufferFloor 180 1 * 120 < 1 * 180 := by
+  decide
+
+def borderScaled (scale120 : Nat) (rect : Rect) (color : Color) : Prim :=
+  .quad rect 0 0 (bufferSize scale120 1) color
+
+theorem borderScaled_negWitness :
+    focusBorder true { x := 0, y := 0, w := 100, h := 80 } 0 =
+      .quad { x := 0, y := 0, w := 100, h := 80 } 0 0 1 0 ∧
+    borderScaled 240 { x := 0, y := 0, w := 100, h := 80 } 0 ≠
+      focusBorder true { x := 0, y := 0, w := 100, h := 80 } 0 := by
+  decide
+
+def focusAlwaysDamaged (_before _after : Bool) (rect : Rect) : Damage := some rect
+
+theorem focusAlwaysDamaged_negWitness :
+    focusBorderDamage true true { x := 0, y := 0, w := 100, h := 80 } = none ∧
+    focusAlwaysDamaged true true { x := 0, y := 0, w := 100, h := 80 } ≠ none := by
+  decide
+
 end LeanUI.Spec.Mutant

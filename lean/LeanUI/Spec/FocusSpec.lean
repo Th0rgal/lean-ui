@@ -133,4 +133,26 @@ theorem popTrap_pushTrap (s : FocusState) (ids : List EntityId) :
     (s.pushTrap ids).popTrap.traps = s.traps := by
   simp [popTrap, pushTrap]
 
+theorem focusBorder_geometry (focused : Bool) (rect : Rect) (color : Color) :
+    focusBorder focused rect color = .quad rect 0 0 (if focused then 1 else 0) color := by
+  rfl
+
+theorem focusBorder_step (rect : Rect) (color : Color) :
+    focusBorder true rect color = .quad rect 0 0 1 color ∧
+    focusBorder false rect color = .quad rect 0 0 0 color := by
+  exact ⟨rfl, rfl⟩
+
+theorem focusBorderDamage_quiet (focused : Bool) (rect : Rect) :
+    focusBorderDamage focused focused rect = none := by
+  simp [focusBorderDamage]
+
+theorem focusBorderDamage_changed (before after : Bool) (rect : Rect)
+    (hchange : before ≠ after) (hrect : rect.isEmpty = false) :
+    focusBorderDamage before after rect = some rect := by
+  simp [focusBorderDamage, hchange, Damage.add, hrect]
+
+theorem focusBorderDamage_empty (before after : Bool) (rect : Rect)
+    (hrect : rect.isEmpty = true) : focusBorderDamage before after rect = none := by
+  simp [focusBorderDamage, Damage.add, hrect]
+
 end LeanUI.Spec

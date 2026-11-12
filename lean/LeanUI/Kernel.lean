@@ -162,4 +162,20 @@ variable {α β : Type}
 
 end HashCache
 
+@[inline] def scrollLimit (content viewport : Nat) : Nat := content - viewport
+
+@[inline] def scrollStep (content viewport offset : Nat) (delta : Int) : Nat :=
+  (max 0 (min (scrollLimit content viewport : Int) ((offset : Int) + delta))).toNat
+
+@[inline] def resizeSub (logicalPixels : Nat) : Nat := logicalPixels * subPerPx
+
+@[inline] def bufferSize (scale120 logicalPixels : Nat) : Nat :=
+  (logicalPixels * scale120 + scaleDen - 1) / scaleDen
+
+@[inline] def focusBorder (focused : Bool) (rect : Rect) (color : Color) : Prim :=
+  .quad rect 0 0 (if focused then 1 else 0) color
+
+@[inline] def focusBorderDamage (before after : Bool) (rect : Rect) : Damage :=
+  if before == after then none else Damage.add none rect
+
 end LeanUI

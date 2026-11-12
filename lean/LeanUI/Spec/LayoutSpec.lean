@@ -197,4 +197,64 @@ theorem roundRectOut_covers (scale120 : Nat) (hs : 0 < scale120) (r : Rect) (px 
   simp only [roundRectOut, Rect.right, Rect.bottom] at a2 a4 ⊢
   omega
 
+theorem scrollStep_bounds (content viewport offset : Nat) (delta : Int) :
+    scrollStep content viewport offset delta ≤ content - viewport := by
+  simp only [scrollStep, scrollLimit]
+  omega
+
+theorem scrollStep_interior (content viewport offset : Nat) (delta : Int)
+    (hlo : 0 ≤ (offset : Int) + delta)
+    (hhi : (offset : Int) + delta ≤ (content - viewport : Nat)) :
+    (scrollStep content viewport offset delta : Int) = (offset : Int) + delta := by
+  simp only [scrollStep, scrollLimit]
+  omega
+
+theorem scrollStep_start (content viewport offset : Nat) (delta : Int)
+    (h : (offset : Int) + delta ≤ 0) : scrollStep content viewport offset delta = 0 := by
+  simp only [scrollStep, scrollLimit]
+  omega
+
+theorem scrollStep_end (content viewport offset : Nat) (delta : Int)
+    (h : (content - viewport : Nat) ≤ (offset : Int) + delta) :
+    scrollStep content viewport offset delta = content - viewport := by
+  simp only [scrollStep, scrollLimit]
+  omega
+
+theorem scrollStep_idle (content viewport offset : Nat) (h : offset ≤ content - viewport) :
+    scrollStep content viewport offset 0 = offset := by
+  simp only [scrollStep, scrollLimit]
+  omega
+
+theorem scrollStep_no_overflow (content viewport offset : Nat) (delta : Int)
+    (h : content ≤ viewport) : scrollStep content viewport offset delta = 0 := by
+  have := scrollStep_bounds content viewport offset delta
+  omega
+
+theorem scrollStep_mono (content viewport offset : Nat) (a b : Int) (h : a ≤ b) :
+    scrollStep content viewport offset a ≤ scrollStep content viewport offset b := by
+  simp only [scrollStep, scrollLimit]
+  omega
+
+theorem resizeSub_units (pixels : Nat) : resizeSub pixels = 64 * pixels := by
+  simp [resizeSub, subPerPx, Nat.mul_comm]
+
+theorem bufferSize_covers (scale120 pixels : Nat) :
+    pixels * scale120 ≤ bufferSize scale120 pixels * 120 := by
+  simp only [bufferSize, scaleDen]
+  omega
+
+theorem bufferSize_least (scale120 pixels candidate : Nat)
+    (h : pixels * scale120 ≤ candidate * 120) : bufferSize scale120 pixels ≤ candidate := by
+  simp only [bufferSize, scaleDen]
+  omega
+
+theorem bufferSize_from_resize (scale120 pixels : Nat) :
+    bufferSize scale120 pixels = (ceilDev scale120 (resizeSub pixels)).toNat := by
+  simp only [bufferSize, ceilDev, resizeSub, subPerPx, scaleDen]
+  have hm : ((pixels * 64 : Nat) : Int) * scale120 =
+      (pixels * scale120 : Nat) * (64 : Int) := by
+    simp [Int.natCast_mul, Int.mul_right_comm]
+  rw [hm]
+  omega
+
 end LeanUI.Spec
