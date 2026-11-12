@@ -117,11 +117,20 @@ theorem borderScaled_negWitness :
       focusBorder true { x := 0, y := 0, w := 100, h := 80 } 0 := by
   decide
 
-def focusAlwaysDamaged (_before _after : Bool) (rect : Rect) : Damage := some rect
+def focusAlwaysDamaged (rect : Rect) : Damage := some rect
 
 theorem focusAlwaysDamaged_negWitness :
-    focusBorderDamage true true { x := 0, y := 0, w := 100, h := 80 } = none ∧
-    focusAlwaysDamaged true true { x := 0, y := 0, w := 100, h := 80 } ≠ none := by
-  decide
+    ∀ focused : Bool,
+      focusBorderDamage focused focused { x := 0, y := 0, w := 100, h := 80 } = none ∧
+      focusAlwaysDamaged { x := 0, y := 0, w := 100, h := 80 } ≠ none := by
+  intro focused
+  cases focused <;> decide
+
+theorem focusAlwaysDamaged_changedWitness :
+    ∀ focused : Bool,
+      focusBorderDamage focused (!focused) { x := 0, y := 0, w := 100, h := 80 } =
+        focusAlwaysDamaged { x := 0, y := 0, w := 100, h := 80 } := by
+  intro focused
+  cases focused <;> decide
 
 end LeanUI.Spec.Mutant

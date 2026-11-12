@@ -133,9 +133,11 @@ theorem popTrap_pushTrap (s : FocusState) (ids : List EntityId) :
     (s.pushTrap ids).popTrap.traps = s.traps := by
   simp [popTrap, pushTrap]
 
-theorem focusBorder_geometry (focused : Bool) (rect : Rect) (color : Color) :
-    focusBorder focused rect color = .quad rect 0 0 (if focused then 1 else 0) color := by
-  rfl
+theorem focusBorder_geometry (focused otherFocused : Bool) (rect otherRect : Rect)
+    (color otherColor : Color) :
+    focusBorder focused rect color = focusBorder otherFocused otherRect otherColor ↔
+      focused = otherFocused ∧ rect = otherRect ∧ color = otherColor := by
+  cases focused <;> cases otherFocused <;> simp [focusBorder]
 
 theorem focusBorder_step (rect : Rect) (color : Color) :
     focusBorder true rect color = .quad rect 0 0 1 color ∧
