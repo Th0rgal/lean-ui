@@ -81,11 +81,30 @@ remains pending verified transfer. No historical ledger preservation is claimed.
 - C gate is absent: independent `wc -l c/*.c` exited 1 because no matching C
   source files exist. Visual, benchmark, and Orb CI gates remain unrun.
 
+## REVIEW_1 rows 1 & 21 closure: ACCEPTED (`9fbc5aba7021784e0d678b810f86059ae765868a`)
+
+- Local commit: `9fbc5aba7021784e0d678b810f86059ae765868a`.
+- Closed remaining `REVIEW_1.md` rows 1 (`flexShrink`, `flexRedistribute`, `flexMainClamped`, `flexMain_fills_clamped`, `flexMain_clamp_loses_space_negWitness`, `flexNoShrink_overflows_negWitness`) and 21 (`Atlas.reset`, `Atlas.allocPadded`, `Atlas.allocPages`, `allocPadded_guard_owns`, `allocPadded_disjoint_guard`, `allocPages_live`, `allocPages_sound`, `allocUnpadded_abuts_negWitness`, `resetNoRewind_exhausts_negWitness`, `allocSinglePage_full_negWitness`), completing all 26 `REVIEW_1.md` rows alongside rows 24 and 25 from `aa7969a6a9e27474018eabf1404edba772f8a15e`.
+- Independent gate worker `b23d68d5-f3f5-4345-929c-4c30f8dbe13f` verified cold `turbo-lean build LeanUI LeanUISpec --project-dir lean` (`exit 0`, 8 modules compiled) and `turbo-lean --json audit-spec --require-nonempty lean/LeanUI/Spec/*.lean` (`exit 0`, `ok: true`, `124/124` tight specs, `0` vacuous, `0` trivial, `0` sorryAx, `0` native_decide).
+- Status: ACCEPTED (`kernel-checked`). Core spec & ABI freeze status is now `FROZEN` (all 26 `REVIEW_1.md` rows closed).
+
+## Wave 1 C11 leaf shims & `LeanUI.FFI`: REJECTED (`92532705`) -> ACCEPTED (`392ad740`)
+
+- Worker mission: `54601125-4a46-4713-ae9c-dc6ba42ba84c` (model: `builtin/smart`, backend: `opencode`, branch: `w1-c-shim`).
+- Initial commit `925327050ed4e0541a5afda816ecd58359d5a501` was REJECTED by independent gate worker `4b14bd7b-4d22-40ab-a461-2ea05b303e25` on 4 blocking defects: (1) `lean/LeanUI/FFI.lean` contained pure-Lean `throw` stubs rather than `@[extern "lean_ui_*"]` bindings and `memfd` had signature `UInt32 → IO UInt64` instead of `UInt32 → IO UInt32`; (2) `c/lean_ui_wayland.c` had 4 memory/protocol safety bugs (`lean_ui_wl_make_interface` unchecked descriptor bounds, `lean_ui_wl_marshal` unchecked `args`/`blob` bounds, `lean_ui_wl_pump` `wl_display_cancel_read` without held `prepare_read` lock on `dispatch_pending < 0`, and `lean_ui_xkb_keymap` `size == 0` / non-NUL-terminated `mmap` string read); and (3) `lean/LeanUI.lean` imported `LeanUI.FFI`, causing `turbo-lean` pure-cone splitter rejection unless worked around. Rejected commit `925327050ed4e0541a5afda816ecd58359d5a501` is preserved in history.
+- Remediation commit: `392ad7402db131b1e78aefd4391c39663c12d379` (tree `fc08dfe15381f2bc67c900d954a0542b831bac36`) on `w1-c-shim`.
+  - Replaced all stubs in `lean/LeanUI/FFI.lean` with all 23 `@[extern "lean_ui_*"] opaque` declarations matching `c/lean_ui.h` (`memfd : UInt32 → IO UInt32`) and restored `lean/LeanUI.lean` to `9fbc5aba` so the pure proof cone stays disjoint from FFI leaf modules.
+  - Hardened `c/lean_ui_wayland.c` (`rd_cstr`/`parse_msgs` bounds checks, `lean_ui_wl_marshal` `args` & `blob` bounds checks, `lean_ui_wl_pump` `prep` lock guard, `lean_ui_xkb_keymap` `size == 0` guard + `xkb_keymap_new_from_buffer`).
+- Independent gate worker `4b14bd7b-4d22-40ab-a461-2ea05b303e25` verified `392ad7402db131b1e78aefd4391c39663c12d379`:
+  - Mechanical Gate 2 (`wc -l c/*.c`): `198 c/lean_ui_text.c`, `71 c/lean_ui_vulkan.c`, `218 c/lean_ui_wayland.c` (`487` total, all `<= 220` LOC; `0` `.rs`/`.cpp`) — **PASS** (`executable-reproduced`).
+  - All 4 C safety fixes in `c/lean_ui_wayland.c` and all 23 `@[extern "lean_ui_*"] opaque` declarations in `lean/LeanUI/FFI.lean` verified via runtime execution test linked against `c/lean_ui_*.c` — **PASS** (`executable-reproduced`).
+  - Cold `turbo-lean build LeanUI LeanUISpec --project-dir lean` (`8` modules, `exit 0`) and `turbo-lean --json audit-spec --require-nonempty lean/LeanUI/Spec/*.lean` (`124/124` tight, `exit 0`) — **PASS** (`kernel-checked`).
+
 ## Campaign blockers and controller status
 
 - W0: BLOCKED, 0/36 reference PNGs and 0/20 benchmark runs.
-- REVIEW_1 rows 1 and 21: OPEN; rows 24 and 25: partial.
-- Freeze status: FREEZE_BLOCKED. No campaign PASS is claimed.
+- REVIEW_1 rows 1–25 (all 26 items): CLOSED (`9fbc5aba7021784e0d678b810f86059ae765868a`).
+- Freeze status: FROZEN (core types, kernels, specs, and C11 leaf shims accepted). No campaign PASS is claimed.
 - Historical W0 ledger transfer remains BLOCKED; trusted relay remains absent.
 - Current VM probes: `pkg-config` finds GTK3 3.24.41 and WebKit2GTK 4.1 2.52.3,
   but GTK4, WebKitGTK 6.0, and Vulkan development metadata are missing (exit 1).
