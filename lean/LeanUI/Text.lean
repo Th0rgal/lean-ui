@@ -315,7 +315,12 @@ def layoutTextRun (ac : GlyphAtlasCache) (f : FontHandle) (sizeSub : Nat) (scale
           y := baseDevPx - entry.bearingY - (gy64 / 64)
           w := entry.uv.w
           h := entry.uv.h }
-      prims := prims.push (.glyph entry.uv dst color entry.isColor)
+      let prim : Prim :=
+        if entry.page > 0 && !entry.isColor then
+          .mask entry.page entry.uv dst color
+        else
+          .glyph entry.uv dst color entry.isColor
+      prims := prims.push prim
     penDev64 := penDev64 + sg.xAdvance64
   let advSub : Int := (penDev64 * (scaleDen : Int)) / (if scale120 == 0 then 120 else (scale120 : Int)) - xSub
   return (curAc, advSub, prims)

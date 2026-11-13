@@ -18,6 +18,6 @@ lean_lib «LeanUISpec» where
 
 /-- Native Wayland + Vulkan + HarfBuzz/FreeType runtime library (links against `c/lean_ui_*.o`). -/
 lean_lib «LeanUIRuntime» where
-  roots := #[`LeanUI.FFI, `LeanUI.Wayland, `LeanUI.Text, `LeanUI.Vulkan, `LeanUI.Runtime]
+  roots := #[`LeanUI.FFI, `LeanUI.Wayland, `LeanUI.Text, `LeanUI.Vulkan, `LeanUI.Runtime, `LeanUI.Canary]
   leanOptions := #[⟨`warningAsError, true⟩]
   precompileModules := false

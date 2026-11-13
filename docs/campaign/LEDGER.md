@@ -100,6 +100,37 @@ remains pending verified transfer. No historical ledger preservation is claimed.
   - All 4 C safety fixes in `c/lean_ui_wayland.c` and all 23 `@[extern "lean_ui_*"] opaque` declarations in `lean/LeanUI/FFI.lean` verified via runtime execution test linked against `c/lean_ui_*.c` — **PASS** (`executable-reproduced`).
   - Cold `turbo-lean build LeanUI LeanUISpec --project-dir lean` (`8` modules, `exit 0`) and `turbo-lean --json audit-spec --require-nonempty lean/LeanUI/Spec/*.lean` (`124/124` tight, `exit 0`) — **PASS** (`kernel-checked`).
 
+## Wave 1 Pure UI Stack (`w1-pure`) & Native Runtime (`w1-runtime`): ACCEPTED & INTEGRATED
+
+- **Wave 1 Shard A (`w1-pure` — `Style.lean`, `Layout.lean`, `Scene.lean`, `LeanUI.lean`)**:
+  - Worker mission: `55db904e-593e-46ea-bd32-568a22270124` (branch: `w1-pure`, base: `dc5eca9a4889b33d91bad21bb4efce16a21d95ba`).
+  - Initial candidate `b1ce296ea23580c6bef1f2ee03bde9a7e0f2e534` and intermediate fix `cf83d04bdcc55c38e24c7848414538bc4277a30e` were REJECTED (signed `Int` layout origin coordinates for scrolled children and paint-order `hitRegionsSub`/`hitRegionsDev` preservation for `Kernel.hitTest` `foldl`). Both rejected commits remain preserved in git history.
+  - Accepted commit: `e2d4eb2ff8f2161d94e19aa353e2563f58e953ec` (tree `4bd7ffd236e6758555b0c953866bb4abb5570063`) — **ACCEPTED** (`kernel-checked`).
+- **Wave 1 Shard B (`w1-runtime` — `Wayland.lean`, `Text.lean`, `Vulkan.lean`, `Runtime.lean`, `shaders/scene_sdf.glsl`, `lean/lakefile.lean`, `flake.nix`, `README.md`)**:
+  - Worker mission: `54601125-4a46-4713-ae9c-dc6ba42ba84c` (branch: `w1-runtime`, parent: `dc5eca9a4889b33d91bad21bb4efce16a21d95ba`).
+  - Accepted commit: `a2d445297f9a787afdbb5d2702b0e89873308789` (tree `21400b174fa9b9286bbacc3c94ca05906e016620`) — **ACCEPTED** (`executable-reproduced` + `kernel-checked`).
+- **Unified Wave 1 Integration Commit**:
+  - Executor mission: `49a57282-996d-4ab9-a0e1-d8605fdb4c78` (branch: `w2-canary`).
+  - Integration commit: `a13c12d5376362f6e1fdd1320f2c56f93be40a0b` (tree `2d48f8479f50e819a216272718dca415049625fe`, parent `a2d445297f9a787afdbb5d2702b0e89873308789`) applying `w1_pure_v3.patch` (`e2d4eb2ff8f2161d94e19aa353e2563f58e953ec`) cleanly atop `a2d445297f9a787afdbb5d2702b0e89873308789`.
+
+## Wave 2 End-to-End 1-Unit Canary Screen (`LeanUI/Canary.lean`) & Multi-Page Glyph Fix: VERIFIED (`w2-canary`)
+
+- Executor mission: `49a57282-996d-4ab9-a0e1-d8605fdb4c78` (model: `builtin/smart`, backend: `opencode`, branch: `w2-canary` / `main`).
+- Wave 1 integration parent commit: `a13c12d5376362f6e1fdd1320f2c56f93be40a0b` (tree `2d48f8479f50e819a216272718dca415049625fe`).
+- Changes delivered in Wave 2 commit (parent `a13c12d5376362f6e1fdd1320f2c56f93be40a0b`, code/config tree `lean/` identical to `8cae25f27159cafc593b90d2f155568a1bcdb63a`):
+  - `lean/LeanUI/Text.lean` (`layoutTextRun`): when `entry.page > 0 && !entry.isColor`, emit `.mask entry.page entry.uv dst color` so multi-page grayscale glyph atlases sample the exact page `entry.page` in `Vulkan.rasterizeScene`.
+  - `lean/LeanUI/Canary.lean`: implements the 1-unit Orb Desktop Canary screen composing `LeanUI.Style` (`Theme.dark` / `Theme.light`, `Palette`, `BoxStyle`, `TextStyle`), `LeanUI.Layout` (`LayoutNode`, `ComputedBox`, `layoutTree`, Flexbox row/column + scroll container + inline text wrapping), `LeanUI.Scene` (`WidgetNode`, `SceneOutput`, `buildScene`, `hitTest`, `focusOrder`, `Kernel.focusBorder`), `LeanUI.Text` (`GlyphAtlasCache`, `layoutTextRun`), and `LeanUI.Runtime` (`RuntimeState`, `stepFrame`, `parseRuntimeArgs`, `--headless-golden <output.png>`). Exposes `buildCanaryWidgetTree`, `renderCanaryFrame`, and `main (args : List String) : IO UInt32`.
+  - `lean/lakefile.lean`: added `` `LeanUI.Canary `` to `LeanUIRuntime` roots while preserving pure verification cone hygiene (`lean/LeanUI.lean` imports only `Defs`, `Kernel`, `Style`, `Layout`, `Scene`).
+- Mechanical Gates on Wave 2:
+  1. Cold 11-module `turbo-lean --no-daemon --no-telemetry --max-memory-mb 6144 build LeanUI LeanUISpec --project-dir lean`: `0 reused, 0 cached, 11 compiled`, `exit 0` (`kernel-checked`).
+  2. `turbo-lean --json audit-spec --require-nonempty lean/LeanUI/Spec/*.lean`: `ok: true`, `124/124` tight specs, `0` vacuous, `0` trivial, `0` sorryAx, `0` native_decide, `exit 0` (`kernel-checked`).
+  3. `wc -l c/*.c`: `198 c/lean_ui_text.c`, `71 c/lean_ui_vulkan.c`, `218 c/lean_ui_wayland.c` (`487` total, all `<= 220` LOC, `0` `.rs`/`.cpp`) (`executable-reproduced`).
+  4. All 12 modules (`Defs`, `Kernel`, `Style`, `Layout`, `Scene`, `FFI`, `Wayland`, `Text`, `Vulkan`, `Runtime`, `Canary`, `LeanUI`) compiled with `lean -DwarningAsError=true`, linked against `c/lean_ui_{wayland,vulkan,text}.o` into `/tmp/opencode/lean-ui-canary`, and verified across all 4 matrix variants (`dark_1x`, `dark_2x`, `light_1x`, `light_2x`) with repeat runs confirming byte-for-byte determinism (`SSIM = 1.000`) and `0` redraws when quiescent (`framesRendered = 1`, `quiescentSkips >= 1`):
+     - `dark_1x` (`1280x800`): `4,100,192` bytes, SHA256 `2ed76613cf0fe2eaf60463b0e9abd09aea5c15774423586f2c409af0fbed61c0`
+     - `dark_2x` (`2560x1600`): `16,397,877` bytes, SHA256 `ca0deb38f7c72c0f9ef0a8ef0ffdd91be279b680f8c3ffd81e6459c44591dce9`
+     - `light_1x` (`1280x800`): `4,100,192` bytes, SHA256 `623b97406bdcf6975457fd04f06325d6e7626366f4996c3ee22aeace5c7b893b`
+     - `light_2x` (`2560x1600`): `16,397,877` bytes, SHA256 `5a942cf430ad413c50a4da3e100e0e5764725cb8ff81988d1b08a80afb672198`
+
 ## Campaign blockers and controller status
 
 - W0: BLOCKED, 0/36 reference PNGs and 0/20 benchmark runs.
