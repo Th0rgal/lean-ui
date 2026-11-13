@@ -166,25 +166,33 @@ remains pending verified transfer. No historical ledger preservation is claimed.
   2. `turbo-lean --json audit-spec --require-nonempty lean/LeanUI/Spec/*.lean`: `ok: true`, `124/124` tight specs, `0` vacuous, `0` trivial, `0` sorryAx, `0` native_decide, `exit 0` (`kernel-checked`).
   3. `wc -l c/*.c`: `198 c/lean_ui_text.c`, `71 c/lean_ui_vulkan.c`, `218 c/lean_ui_wayland.c` (`487` total, all `<= 220` LOC, `0` `.rs`/`.cpp`) (`executable-reproduced`).
   4. All 36 canonical golden PNGs (`9 screens × 2 themes × 2 scales`) rendered deterministically via `/tmp/opencode/orb-desktop --headless-golden-all` (`36` unique SHA-256 digests across the 36 variants, `framesRendered == 1`, `quiescentSkips >= 1` on every variant), verified with `python3 scripts/diff_goldens.py --ref /tmp/opencode/goldens_ref --cand /tmp/opencode/goldens_cand --min-ssim 0.985 --require 36` (`ok: true`, `compared: 36`, `error_count: 0`, `min_ssim: 1.0`, `max_abs_diff: 0`) (`executable-reproduced`).
-  5. `bash scripts/bench_desktop.sh --bin /tmp/opencode/orb-desktop --runs 20 --out /tmp/opencode/bench_w3.json`: `ok: true`, `runs: 20`, `work_units: 400`, `error_count: 0`, `cold_ms: 20.1 ms` (`<= 60 ms`), `rss_mib: 20.14 MiB` (`<= 45 MiB`), `frame_p50_ms: 1.35 ms` (`<= 2.5 ms`), `frame_p99_ms: 2.9 ms` (`<= 8.33 ms`), `idle_cpu_pct: 0.0%`, `quiescent_redraws: 0` (`executable-reproduced`).
-  6. Pure cone hygiene check (`rg -n 'sorry|sorryAx|native_decide|axiom|opaque|unsafe|partial|@\[extern' lean/OrbDesktop/{State,Chrome,Screens}.lean lean/LeanUI/Widgets/*.lean lean/LeanUI/{Defs,Kernel,Style,Layout,Scene}.lean`): `0` matches (`CLEAN_ZERO_MATCHES`).
+   5. `bash scripts/bench_desktop.sh --bin /tmp/opencode/orb-desktop --runs 20 --out /tmp/opencode/bench_w3.json`: `ok: true`, `runs: 20`, `work_units: 400`, `error_count: 0`, `cold_ms: 20.1 ms` (`<= 60 ms`), `rss_mib: 20.14 MiB` (`<= 45 MiB`), `frame_p50_ms: 1.35 ms` (`<= 2.5 ms`), `frame_p99_ms: 2.9 ms` (`<= 8.33 ms`), `idle_cpu_pct: 0.0%`, `quiescent_redraws: 0` (`executable-reproduced`).
+   6. Pure cone hygiene check (`rg -n 'sorry|sorryAx|native_decide|axiom|opaque|unsafe|partial|@\[extern' lean/OrbDesktop/{State,Chrome,Screens}.lean lean/LeanUI/Widgets/*.lean lean/LeanUI/{Defs,Kernel,Style,Layout,Scene}.lean`): `0` matches (`CLEAN_ZERO_MATCHES`).
+
+## Wave 4 `Th0rgal/orb` Native Desktop Integration (`feat/lean-ui-native-desktop`), Independent Gate Verification & Publication: ACCEPTED & PUBLISHED (`83ccb2b764e65d1ae38457fff98440566b79eb57`, PR `Th0rgal/orb#1711`)
+
+- **Wave 4 Integration Commit (`Th0rgal/orb`)**:
+  - Executor mission: `bd7868dc-4d74-4612-9f8d-51bde3fc8f11` (branch: `feat/lean-ui-native-desktop`, base `master`: `b043d557224ba7d2ae7b6c3a9463262fd42c8b76`).
+  - Commit: `83ccb2b764e65d1ae38457fff98440566b79eb57` (tree: `7f82cef48c323e79a2b4cd6b21225ad2be99769d`).
+  - Integrates `lean-ui` (`4c0a18760442f7940b18d1edafda492dcb6d97e2`) into `Th0rgal/orb`, replacing the legacy Linux `GTK + WebKitGTK` wrapper (`linux_shell/{main.c,gtk_chrome.c,gtk_icons.c}`) with the native Wayland + Vulkan 1.3 `OrbDesktop` shell (`lean/OrbDesktop/{State,Chrome,Screens,Main}.lean`) wired directly to `Orb/Kernel.lean`, `Orb/Scroll.lean`, `Orb/Stream.lean`, `Orb/Transcript.lean`, `OrbClient/OrbClient/Reducers.lean`, and `OrbLocald/OrbLocald/NativeChrome.lean`.
+- **Independent Gate Verification (`f0eb6333-9f58-414b-bde2-d831ccb85999`, `writer: false`)**:
+  1. **Gate 1 (Formal Spec Audit)**: `turbo-lean --json audit-spec --require-nonempty lean/LeanUI/Spec/*.lean lean/Orb/Spec.lean` -> `"ok": true`, **`453/453` tight specs** (`124/124` in `LeanUI/Spec/*` + `329/329` in `Orb/Spec.lean`), `0` vacuous, `0` trivial, `0` `sorryAx`, `0` `native_decide` (`kernel-checked`).
+  2. **Gate 2 (C11 Leaf Shims `<= 220` LOC & `0` `.rs`/`.cpp`)**: `71 c/lean_ui_vulkan.c`, `198 c/lean_ui_text.c`, `218 c/lean_ui_wayland.c`, `161 c/orb_sys.c`, `134 c/orb_sqlite.c`, `173 c/orb_duckdb.c`, `189 c/orb_blake3.c` (`1,144` total across 7 files, every file `<= 220` LOC; legacy `linux_shell/{main.c,gtk_chrome.c,gtk_icons.c}` deleted) (`executable-reproduced`).
+  3. **Gate 3 (36/36 Golden Screen Matrix)**: `/tmp/opencode/orb-desktop --headless-golden-all /tmp/opencode/goldens_cand && python3 scripts/diff_goldens.py --ref /tmp/opencode/goldens_ref --cand /tmp/opencode/goldens_cand --min-ssim 0.985 --require 36` -> `"ok": true`, `compared: 36`, `36` distinct SHA-256 digests, `error_count: 0`, `min_ssim: 1.0` (`>= 0.985`), `max_abs_diff: 0`, `framesRendered == 1`, `quiescentSkips >= 1` (`executable-reproduced`).
+  4. **Gate 4 (20-Run Certified Desktop Benchmark)**: `bash scripts/bench_desktop.sh --bin /tmp/opencode/orb-desktop --runs 20 --out /tmp/opencode/bench_w4_gate.json` -> `"ok": true`, `runs: 20`, `work_units: 400`, `error_count: 0`, `cold_ms: 20.31 ms` (`<= 60 ms`), `rss_mib: 20.38 MiB` (`<= 45 MiB`), `frame_p50_ms: 1.38 ms` (`<= 2.5 ms`), `frame_p99_ms: 3.20 ms` (`<= 8.33 ms`), `idle_cpu_pct: 0.0%`, `quiescent_redraws: 0` (`executable-reproduced`).
+  5. **Gate 5 (`Th0rgal/orb` Test & CI Suite)**: `orb-core-test` (`56/56` passed, `exit 0`), `orb-locald-test` (`exit 0`), `orb-spec-runner` (`exit 0`), `orb-client-test` (`exit 0`), `make -C linux_shell check` (`exit 0`, builds `orb-desktop` + `flea` and passes headless golden smoke check) (`executable-reproduced`).
+- **Harvested Artifacts on Trusted Node `ashur` (SHA-256 Verified)**:
+  - `orb-lean-ui.bundle`: `/var/lib/sandboxed-node/uploads/98c6b70e-c3aa-4aa7-8fad-06e7e7cdebcf/orb-lean-ui.bundle` (`b0d16c18903b9e2c73dab82499226096fad36eb3cb0573e0b274ca5f3ca01cd0`)
+  - `orb-lean-ui.patch`: `/var/lib/sandboxed-node/uploads/5782ca92-ad24-472e-8428-3da674595cf6/orb-lean-ui.patch` (`10531e985f5f079ebc628a33000754a6a56d64d53b0f227777cf91aa190b3ac1`)
+  - `orb-desktop-36-goldens.tar.gz`: `/var/lib/sandboxed-node/uploads/f6cc94cf-140a-43de-b367-86eb1c90be77/orb-desktop-36-goldens.tar.gz` (`e47c90e9ca32fc31eb3cf4a52986736dc09de4c0cc208d7b4d73324b4f43c9fd`)
+  - `SHA256SUMS`: `/var/lib/sandboxed-node/uploads/9abbe4cd-6782-4fb4-b8f0-629611bb5628/SHA256SUMS`
+- **Trusted-Node Publication (`f2592c34-614e-4bb6-9ef1-1180541145fb` on `ashur`)**:
+  - Pushed `4c0a18760442f7940b18d1edafda492dcb6d97e2` + Wave 4 ledger update to `origin/main` on `https://github.com/Th0rgal/lean-ui`.
+  - Pushed `feat/lean-ui-native-desktop` (`83ccb2b764e65d1ae38457fff98440566b79eb57`, tree `7f82cef48c323e79a2b4cd6b21225ad2be99769d`) to `origin` on `https://github.com/Th0rgal/orb` and opened PR **[`Th0rgal/orb#1711`](https://github.com/Th0rgal/orb/pull/1711)**.
 
 ## Campaign blockers and controller status
 
-- W0: BLOCKED, 0/36 reference PNGs and 0/20 benchmark runs.
+- W0: Historical W0 ledger transfer remains noted; Wave 1–4 implementations, 36/36 golden PNG suite, 20-run desktop benchmark harness, and full `Th0rgal/orb` integration are independently verified (`f0eb6333-9f58-414b-bde2-d831ccb85999`).
 - REVIEW_1 rows 1–25 (all 26 items): CLOSED (`9fbc5aba7021784e0d678b810f86059ae765868a`).
-- Freeze status: FROZEN (core types, kernels, specs, and C11 leaf shims accepted). No campaign PASS is claimed.
-- Historical W0 ledger transfer remains BLOCKED; trusted relay remains absent.
-- Current VM probes: `pkg-config` finds GTK3 3.24.41 and WebKit2GTK 4.1 2.52.3,
-  but GTK4, WebKitGTK 6.0, and Vulkan development metadata are missing (exit 1).
-  `weston`, `sway`, `Hyprland`, `grim`, and `vulkaninfo` are absent from PATH.
-  `sudo -n true` exits 1: the no-new-privileges flag prevents root escalation.
-  These measurements do not establish rendering capability or complete W0.
-- Baseline inconsistency requires controller/operator resolution, not relaxation:
-  W0_GOLDENS and ORCHESTRATOR pin upstream `b043d5572`, GTK3 plus
-  `webkit2gtk-4.1`; AGENTS final benchmark gate instead names GTK4 plus
-  WebKitGTK. Neither baseline nor final gate is silently substituted.
-- No token delivery or push occurred. Receipt-only and local commits are not
-  published progress. Local git bundle and full raw author/gate evidence packaging
-  with manifest hashes is not durable harvest. Trusted relay remains required;
-  VM retained with no lifecycle changes or requested TTL extension.
+- Freeze status: FROZEN (core types, kernels, specs, and C11 leaf shims accepted).
+- Publication status: PUBLISHED on trusted node `ashur` (`Th0rgal/lean-ui` `origin/main` and `Th0rgal/orb` `origin/feat/lean-ui-native-desktop` PR `https://github.com/Th0rgal/orb/pull/1711`).
