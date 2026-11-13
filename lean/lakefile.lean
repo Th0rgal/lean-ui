@@ -7,7 +7,7 @@ package «lean-ui» where
 
 @[default_target]
 lean_lib «LeanUI» where
-  roots := #[`LeanUI]
+  roots := #[`LeanUI, `OrbDesktop.State, `OrbDesktop.Chrome, `OrbDesktop.Screens]
   leanOptions := #[⟨`warningAsError, true⟩]
   precompileModules := false
 
@@ -18,6 +18,6 @@ lean_lib «LeanUISpec» where
 
 /-- Native Wayland + Vulkan + HarfBuzz/FreeType runtime library (links against `c/lean_ui_*.o`). -/
 lean_lib «LeanUIRuntime» where
-  roots := #[`LeanUI.FFI, `LeanUI.Wayland, `LeanUI.Text, `LeanUI.Vulkan, `LeanUI.Runtime, `LeanUI.Canary]
+  roots := #[`LeanUI.FFI, `LeanUI.Wayland, `LeanUI.Text, `LeanUI.Vulkan, `LeanUI.Runtime, `LeanUI.Canary, `OrbDesktop.Main]
   leanOptions := #[⟨`warningAsError, true⟩]
   precompileModules := false

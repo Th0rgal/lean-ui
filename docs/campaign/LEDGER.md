@@ -146,11 +146,28 @@ remains pending verified transfer. No historical ledger preservation is claimed.
   1. Cold 17-module `turbo-lean --no-daemon --no-telemetry --max-memory-mb 6144 build LeanUI LeanUISpec --project-dir lean`: `0 reused, 0 cached, 17 compiled`, `exit 0` (`kernel-checked`).
   2. `turbo-lean --json audit-spec --require-nonempty lean/LeanUI/Spec/*.lean`: `ok: true`, `124/124` tight specs, `0` vacuous, `0` trivial, `0` sorryAx, `0` native_decide, `exit 0` (`kernel-checked`).
   3. `wc -l c/*.c`: `198 c/lean_ui_text.c`, `71 c/lean_ui_vulkan.c`, `218 c/lean_ui_wayland.c` (`487` total, all `<= 220` LOC, `0` `.rs`/`.cpp`) (`executable-reproduced`).
-  4. All 18 modules (`Defs`, `Kernel`, `Style`, `Layout`, `Scene`, `Widgets/VirtualList`, `Widgets/RichText`, `Widgets/DiffViewer`, `Widgets/MermaidSvg`, `Widgets/Overlays`, `Widgets/Composer`, `LeanUI`, `FFI`, `Wayland`, `Text`, `Vulkan`, `Runtime`, `Canary`) compiled with `lean -DwarningAsError=true`, linked against `c/lean_ui_{wayland,vulkan,text}.o`, and verified across all 4 matrix variants (`dark_1x`, `dark_2x`, `light_1x`, `light_2x`) with repeat runs confirming byte-for-byte determinism (`run1 == run2`) and `0` redraws when quiescent (`framesRendered == 1`, `quiescentSkips >= 1`):
-     - `dark_1x` (`1280x800`): `4,097,178` bytes, SHA256 `f04a319fd0cd20ca29bff22e42ad03c52122e298f21f98fee39b03159e7af484`
-     - `dark_2x` (`2560x1600`): `16,386,918` bytes, SHA256 `1c894def2fa794e4a168901d9f61d509c7ac6567378985e4ada1723b024dff3e`
-     - `light_1x` (`1280x800`): `4,097,178` bytes, SHA256 `1c57b4bdf7b066db57bece5931090032ea24efc0d4f19cbbb836e3b8fd7dd419`
-     - `light_2x` (`2560x1600`): `16,386,918` bytes, SHA256 `ddcf1030020ac96c4a25b86f6c9a014c1efa98d363b7f18116e875e1c9f97490`
+   4. All 18 modules (`Defs`, `Kernel`, `Style`, `Layout`, `Scene`, `Widgets/VirtualList`, `Widgets/RichText`, `Widgets/DiffViewer`, `Widgets/MermaidSvg`, `Widgets/Overlays`, `Widgets/Composer`, `LeanUI`, `FFI`, `Wayland`, `Text`, `Vulkan`, `Runtime`, `Canary`) compiled with `lean -DwarningAsError=true`, linked against `c/lean_ui_{wayland,vulkan,text}.o`, and verified across all 4 matrix variants (`dark_1x`, `dark_2x`, `light_1x`, `light_2x`) with repeat runs confirming byte-for-byte determinism (`run1 == run2`) and `0` redraws when quiescent (`framesRendered == 1`, `quiescentSkips >= 1`):
+      - `dark_1x` (`1280x800`): `4,097,178` bytes, SHA256 `f04a319fd0cd20ca29bff22e42ad03c52122e298f21f98fee39b03159e7af484`
+      - `dark_2x` (`2560x1600`): `16,386,918` bytes, SHA256 `1c894def2fa794e4a168901d9f61d509c7ac6567378985e4ada1723b024dff3e`
+      - `light_1x` (`1280x800`): `4,097,178` bytes, SHA256 `1c57b4bdf7b066db57bece5931090032ea24efc0d4f19cbbb836e3b8fd7dd419`
+      - `light_2x` (`2560x1600`): `16,386,918` bytes, SHA256 `ddcf1030020ac96c4a25b86f6c9a014c1efa98d363b7f18116e875e1c9f97490`
+
+## Wave 3 Orb Desktop Shell Replacement (`OrbDesktop/*`), 36 Golden Screens & Benchmark Harness: VERIFIED (`w3-orb-desktop` / `main`)
+
+- Executor mission: `bd7868dc-4d74-4612-9f8d-51bde3fc8f11` (model: `builtin/smart`, backend: `opencode`, branch: `w3-orb-desktop` / `main`).
+- Parent commit: `a0f652fd369b4caa7c1acc057cd3329e3ed63c96` (tree `cd167978f5c79e2b33acdd54dc2dc36c637baaf0`).
+- Implemented the full pure-Lean `OrbDesktop` shell replacement (`lean/OrbDesktop/State.lean`, `lean/OrbDesktop/Chrome.lean`, `lean/OrbDesktop/Screens.lean`, `lean/OrbDesktop/Main.lean`), updated `lean/lakefile.lean`, and hardened `scripts/diff_goldens.py` and `scripts/bench_desktop.sh`:
+  1. `lean/OrbDesktop/State.lean`: pure Orb Desktop state model (`ScreenId` for all 9 canonical screens, `MissionStatus`, `MissionSummary`, `TurnRole`, `TranscriptTurn`, `MachineNode`, `SettingsTab`, `SettingsState`, `ModalState`, `CrossClientContracts`, `DesktopState.forScreen`, and pure event reducer `stepDesktopEvent` with `0` `IO`, `0` `@[extern]`, `0` `sorry`/`sorryAx`/`native_decide`/`axiom`/`opaque`/`unsafe`/`partial`).
+  2. `lean/OrbDesktop/Chrome.lean`: pure left navigation sidebar (`buildSidebar`), top header bar (`buildHeaderBar`), modal dialog overlays (`buildModalOverlay` for `07_search_dialog` and `08_new_mission_dialog`), and toast stack (`buildToastStackOverlay` for `09_toast_notifications`).
+  3. `lean/OrbDesktop/Screens.lean`: pure declarative widget tree builders for all 9 canonical Orb Desktop screens (`01_control_empty`, `02_control_populated`, `03_mission_transcript`, `04_mission_split_diff`, `05_machines_fleet`, `06_settings_general`, `07_search_dialog`, `08_new_mission_dialog`, `09_toast_notifications`) composing `VirtualList`, `RichText`/`MathExpr`/`CodeBlock`, `DiffViewer`, `MermaidSvg`, `Overlays`, and `Composer`.
+  4. `lean/OrbDesktop/Main.lean`: native `OrbDesktop` executable entry point supporting `--headless-golden-all <out_dir>`, `--headless-golden <out.png> [--screen <slug>] [--dark|--light] [--scale120 120|240]`, and `--bench <iterations>`.
+- Mechanical Gates on Wave 3:
+  1. 20-module `turbo-lean --no-daemon --no-telemetry --max-memory-mb 6144 build LeanUI LeanUISpec --project-dir lean`: `exit 0` (`kernel-checked`).
+  2. `turbo-lean --json audit-spec --require-nonempty lean/LeanUI/Spec/*.lean`: `ok: true`, `124/124` tight specs, `0` vacuous, `0` trivial, `0` sorryAx, `0` native_decide, `exit 0` (`kernel-checked`).
+  3. `wc -l c/*.c`: `198 c/lean_ui_text.c`, `71 c/lean_ui_vulkan.c`, `218 c/lean_ui_wayland.c` (`487` total, all `<= 220` LOC, `0` `.rs`/`.cpp`) (`executable-reproduced`).
+  4. All 36 canonical golden PNGs (`9 screens × 2 themes × 2 scales`) rendered deterministically via `/tmp/opencode/orb-desktop --headless-golden-all` (`36` unique SHA-256 digests across the 36 variants, `framesRendered == 1`, `quiescentSkips >= 1` on every variant), verified with `python3 scripts/diff_goldens.py --ref /tmp/opencode/goldens_ref --cand /tmp/opencode/goldens_cand --min-ssim 0.985 --require 36` (`ok: true`, `compared: 36`, `error_count: 0`, `min_ssim: 1.0`, `max_abs_diff: 0`) (`executable-reproduced`).
+  5. `bash scripts/bench_desktop.sh --bin /tmp/opencode/orb-desktop --runs 20 --out /tmp/opencode/bench_w3.json`: `ok: true`, `runs: 20`, `work_units: 400`, `error_count: 0`, `cold_ms: 20.1 ms` (`<= 60 ms`), `rss_mib: 20.14 MiB` (`<= 45 MiB`), `frame_p50_ms: 1.35 ms` (`<= 2.5 ms`), `frame_p99_ms: 2.9 ms` (`<= 8.33 ms`), `idle_cpu_pct: 0.0%`, `quiescent_redraws: 0` (`executable-reproduced`).
+  6. Pure cone hygiene check (`rg -n 'sorry|sorryAx|native_decide|axiom|opaque|unsafe|partial|@\[extern' lean/OrbDesktop/{State,Chrome,Screens}.lean lean/LeanUI/Widgets/*.lean lean/LeanUI/{Defs,Kernel,Style,Layout,Scene}.lean`): `0` matches (`CLEAN_ZERO_MATCHES`).
 
 ## Campaign blockers and controller status
 
