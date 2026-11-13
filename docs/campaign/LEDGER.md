@@ -113,15 +113,15 @@ remains pending verified transfer. No historical ledger preservation is claimed.
   - Executor mission: `49a57282-996d-4ab9-a0e1-d8605fdb4c78` (branch: `w2-canary`).
   - Integration commit: `a13c12d5376362f6e1fdd1320f2c56f93be40a0b` (tree `2d48f8479f50e819a216272718dca415049625fe`, parent `a2d445297f9a787afdbb5d2702b0e89873308789`) applying `w1_pure_v3.patch` (`e2d4eb2ff8f2161d94e19aa353e2563f58e953ec`) cleanly atop `a2d445297f9a787afdbb5d2702b0e89873308789`.
 
-## Wave 2 End-to-End 1-Unit Canary Screen (`LeanUI/Canary.lean`) & Multi-Page Glyph Fix: VERIFIED (`w2-canary`)
+## Wave 2 End-to-End 1-Unit Canary Screen (`LeanUI/Canary.lean`) & Multi-Page Glyph Fix: ACCEPTED (`w2-canary`)
 
 - Executor mission: `49a57282-996d-4ab9-a0e1-d8605fdb4c78` (model: `builtin/smart`, backend: `opencode`, branch: `w2-canary` / `main`).
 - Wave 1 integration parent commit: `a13c12d5376362f6e1fdd1320f2c56f93be40a0b` (tree `2d48f8479f50e819a216272718dca415049625fe`).
-- Changes delivered in Wave 2 commit (parent `a13c12d5376362f6e1fdd1320f2c56f93be40a0b`, code/config tree `lean/` identical to `8cae25f27159cafc593b90d2f155568a1bcdb63a`):
+- Wave 2 Canary commit: `05157805788c07a669060fda07c20d04fffafc10` (tree `dcefc8a064ba3e286a262c0483b84ca0fc5160c0`, parent `a13c12d5376362f6e1fdd1320f2c56f93be40a0b`, code/config tree `lean/` identical to `8cae25f27159cafc593b90d2f155568a1bcdb63a`):
   - `lean/LeanUI/Text.lean` (`layoutTextRun`): when `entry.page > 0 && !entry.isColor`, emit `.mask entry.page entry.uv dst color` so multi-page grayscale glyph atlases sample the exact page `entry.page` in `Vulkan.rasterizeScene`.
   - `lean/LeanUI/Canary.lean`: implements the 1-unit Orb Desktop Canary screen composing `LeanUI.Style` (`Theme.dark` / `Theme.light`, `Palette`, `BoxStyle`, `TextStyle`), `LeanUI.Layout` (`LayoutNode`, `ComputedBox`, `layoutTree`, Flexbox row/column + scroll container + inline text wrapping), `LeanUI.Scene` (`WidgetNode`, `SceneOutput`, `buildScene`, `hitTest`, `focusOrder`, `Kernel.focusBorder`), `LeanUI.Text` (`GlyphAtlasCache`, `layoutTextRun`), and `LeanUI.Runtime` (`RuntimeState`, `stepFrame`, `parseRuntimeArgs`, `--headless-golden <output.png>`). Exposes `buildCanaryWidgetTree`, `renderCanaryFrame`, and `main (args : List String) : IO UInt32`.
   - `lean/lakefile.lean`: added `` `LeanUI.Canary `` to `LeanUIRuntime` roots while preserving pure verification cone hygiene (`lean/LeanUI.lean` imports only `Defs`, `Kernel`, `Style`, `Layout`, `Scene`).
-- Mechanical Gates on Wave 2:
+- Independent gate worker `a5ae0d02-fa19-45b9-93e5-03f4eedbde4c` verified all 6 mechanical gates on `05157805788c07a669060fda07c20d04fffafc10` — **ACCEPTED** (`kernel-checked` + `executable-reproduced`):
   1. Cold 11-module `turbo-lean --no-daemon --no-telemetry --max-memory-mb 6144 build LeanUI LeanUISpec --project-dir lean`: `0 reused, 0 cached, 11 compiled`, `exit 0` (`kernel-checked`).
   2. `turbo-lean --json audit-spec --require-nonempty lean/LeanUI/Spec/*.lean`: `ok: true`, `124/124` tight specs, `0` vacuous, `0` trivial, `0` sorryAx, `0` native_decide, `exit 0` (`kernel-checked`).
   3. `wc -l c/*.c`: `198 c/lean_ui_text.c`, `71 c/lean_ui_vulkan.c`, `218 c/lean_ui_wayland.c` (`487` total, all `<= 220` LOC, `0` `.rs`/`.cpp`) (`executable-reproduced`).
@@ -130,6 +130,27 @@ remains pending verified transfer. No historical ledger preservation is claimed.
      - `dark_2x` (`2560x1600`): `16,397,877` bytes, SHA256 `ca0deb38f7c72c0f9ef0a8ef0ffdd91be279b680f8c3ffd81e6459c44591dce9`
      - `light_1x` (`1280x800`): `4,100,192` bytes, SHA256 `623b97406bdcf6975457fd04f06325d6e7626366f4996c3ee22aeace5c7b893b`
      - `light_2x` (`2560x1600`): `16,397,877` bytes, SHA256 `5a942cf430ad413c50a4da3e100e0e5764725cb8ff81988d1b08a80afb672198`
+
+## Wave 2B Reusable Widget Library (`LeanUI/Widgets/*`): VERIFIED (`w2-canary` / `main`)
+
+- Executor mission: `d1e18443-6f78-4f0f-8b12-bde8894b2ea7` (model: `builtin/smart`, backend: `opencode`, branch: `main` / `w2-canary`).
+- Parent commit: `05157805788c07a669060fda07c20d04fffafc10` (tree `dcefc8a064ba3e286a262c0483b84ca0fc5160c0`).
+- Implemented all 6 pure reusable widget modules under `lean/LeanUI/Widgets/` (`0` `@[extern]`, `0` `IO`, `0` `sorry`/`sorryAx`/`native_decide`/`axiom`/`opaque`/`unsafe`/`partial`), imported them in `lean/LeanUI.lean`, and wired them into `lean/LeanUI/Canary.lean`:
+  1. `lean/LeanUI/Widgets/VirtualList.lean`: variable-height virtualized list anchored via `clampScrollOffset` (`Kernel.scrollLimit` / `Kernel.scrollStep`) and `ScrollSpec`, computing `(firstIdx, lastIdx, topSpacerSub, bottomSpacerSub, visibleItems)` and building a `WidgetNode.scrollClip` tree (`buildVirtualListWidget`).
+  2. `lean/LeanUI/Widgets/RichText.lean`: Markdown block/inline AST (`RichBlock`, `RichInline`, `SyntaxRole`, `CodeToken`), syntax-highlighted `CodeBlock` with header + focusable copy button (`buildCodeBlockWidget`), and KaTeX-style 2D math box layout (`MathExpr`: `atom`, `operator`, `fraction`, `superscript`, `subscript`, `supSub`, `radical`, `delimited`, `row` via `buildMathWidget`).
+  3. `lean/LeanUI/Widgets/DiffViewer.lean`: unified & split side-by-side diff viewer (`DiffLineKind`: `context`, `add`, `del`, `hunkHeader`; `DiffMode`: `unified`, `split`; dual line-number gutters, `diffAddBg`/`diffDelBg`/`diffHunkBg` styling, and collapsible file header bar via `buildDiffViewerWidget`).
+  4. `lean/LeanUI/Widgets/MermaidSvg.lean`: native diagram & vector tile widget (`DiagramNode`, `DiagramEdge`, `SvgPathCmd`, directed Sugiyama-style layered rank/column layout in `SubPx`, box/pill/diamond nodes + orthogonal connector segments + labels via `buildMermaidDiagramWidget`).
+  5. `lean/LeanUI/Widgets/Overlays.lean`: modal `Dialog`, `Field`, `Select`, `Tooltip`, `Toast`, and `SearchDialog` (with backdrop scrim, elevation shadow, focusable items, modal trap IDs, and case-insensitive active filter query via `buildSearchDialogWidget`).
+  6. `lean/LeanUI/Widgets/Composer.lean`: multi-line composer state & widget (`ComposerBuffer` with cursor offset, bounded undo/redo stacks, atomic `applyImeBatch` and IME preedit span (`imePreeditOffset`, `imePreeditLen`, `imePreeditText`), attachment chips, drag-drop hover state, and focusable `WidgetNode` builder with `Kernel.focusBorder` via `buildComposerWidget`).
+- Mechanical Gates on Wave 2B:
+  1. Cold 17-module `turbo-lean --no-daemon --no-telemetry --max-memory-mb 6144 build LeanUI LeanUISpec --project-dir lean`: `0 reused, 0 cached, 17 compiled`, `exit 0` (`kernel-checked`).
+  2. `turbo-lean --json audit-spec --require-nonempty lean/LeanUI/Spec/*.lean`: `ok: true`, `124/124` tight specs, `0` vacuous, `0` trivial, `0` sorryAx, `0` native_decide, `exit 0` (`kernel-checked`).
+  3. `wc -l c/*.c`: `198 c/lean_ui_text.c`, `71 c/lean_ui_vulkan.c`, `218 c/lean_ui_wayland.c` (`487` total, all `<= 220` LOC, `0` `.rs`/`.cpp`) (`executable-reproduced`).
+  4. All 18 modules (`Defs`, `Kernel`, `Style`, `Layout`, `Scene`, `Widgets/VirtualList`, `Widgets/RichText`, `Widgets/DiffViewer`, `Widgets/MermaidSvg`, `Widgets/Overlays`, `Widgets/Composer`, `LeanUI`, `FFI`, `Wayland`, `Text`, `Vulkan`, `Runtime`, `Canary`) compiled with `lean -DwarningAsError=true`, linked against `c/lean_ui_{wayland,vulkan,text}.o`, and verified across all 4 matrix variants (`dark_1x`, `dark_2x`, `light_1x`, `light_2x`) with repeat runs confirming byte-for-byte determinism (`run1 == run2`) and `0` redraws when quiescent (`framesRendered == 1`, `quiescentSkips >= 1`):
+     - `dark_1x` (`1280x800`): `4,097,178` bytes, SHA256 `f04a319fd0cd20ca29bff22e42ad03c52122e298f21f98fee39b03159e7af484`
+     - `dark_2x` (`2560x1600`): `16,386,918` bytes, SHA256 `1c894def2fa794e4a168901d9f61d509c7ac6567378985e4ada1723b024dff3e`
+     - `light_1x` (`1280x800`): `4,097,178` bytes, SHA256 `1c57b4bdf7b066db57bece5931090032ea24efc0d4f19cbbb836e3b8fd7dd419`
+     - `light_2x` (`2560x1600`): `16,386,918` bytes, SHA256 `ddcf1030020ac96c4a25b86f6c9a014c1efa98d363b7f18116e875e1c9f97490`
 
 ## Campaign blockers and controller status
 

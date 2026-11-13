@@ -3,19 +3,26 @@ import LeanUI.Kernel
 import LeanUI.Style
 import LeanUI.Layout
 import LeanUI.Scene
+import LeanUI.Widgets.VirtualList
+import LeanUI.Widgets.RichText
+import LeanUI.Widgets.DiffViewer
+import LeanUI.Widgets.MermaidSvg
+import LeanUI.Widgets.Overlays
+import LeanUI.Widgets.Composer
 import LeanUI.FFI
 import LeanUI.Wayland
 import LeanUI.Text
 import LeanUI.Vulkan
 import LeanUI.Runtime
 /-!
-# LeanUI.Canary — End-to-End 1-Unit Canary Screen for Orb Desktop
+# LeanUI.Canary — End-to-End 1-Unit Canary Screen & Wave 2B Reusable Widget Library Showcase
 
 Integrates the pure declarative UI stack (`LeanUI.Style`, `LeanUI.Layout`, `LeanUI.Scene`,
-`LeanUI.Kernel`) with the native runtime stack (`LeanUI.Wayland`, `LeanUI.Text`,
-`LeanUI.Vulkan`, `LeanUI.Runtime`) to render the canonical Orb Desktop screen across
-Dark/Light themes and `1.0x`/`2.0x` HiDPI scale factors with deterministic `--headless-golden`
-PNG verification and `0` redraws when quiescent (`quiescentSkips >= 1`).
+`LeanUI.Kernel`, and all 6 reusable widget modules under `LeanUI.Widgets.*`) with the native
+runtime stack (`LeanUI.Wayland`, `LeanUI.Text`, `LeanUI.Vulkan`, `LeanUI.Runtime`) to render
+the canonical Orb Desktop screen across Dark/Light themes and `1.0x`/`2.0x` HiDPI scale factors
+with deterministic `--headless-golden` PNG verification and `0` redraws when quiescent
+(`quiescentSkips >= 1`).
 -/
 namespace LeanUI
 
@@ -194,48 +201,81 @@ def buildCanaryWidgetTree (theme : Theme) (availW availH : SubPx) (scrollOffsetS
       { widths := Edges.trbl 0 0 theme.borderWidth 0, color := pal.border }
       [breadcrumbBox, statusBadge, scaleBadge]
 
-  -- 3. Scrollable Mission Transcript with Assistant Card, SDF Shadow, Rounded Code Block & Diff Preview
+  -- 3. Scrollable Mission Transcript powered by `LeanUI.Widgets.VirtualList` containing
+  --    `RichText` (syntax-highlighted `CodeBlock` + KaTeX `MathExpr`), `DiffViewer`,
+  --    `MermaidSvg` diagram, and `Overlays` (`Toast` + `Tooltip` + `SearchDialog` filter)
   let cardW : SubPx := mainW - pxToSub 40
   let innerBlockW : SubPx := cardW - pxToSub 32
 
+  -- 3a. RichText: Syntax-highlighted CodeBlock + KaTeX MathExpr (`Fraction`, `Superscript`, `Radical`)
   let codeBlockNode : WidgetNode :=
-    WidgetNode.box
-      (BoxStyle.col (pxToSub 6)
-        |>.withPadding (Edges.all (pxToSub 12))
-        |>.withFixedSize innerBlockW (pxToSub 72)
-        |>.withBg pal.codeBg
-        |>.withRadius theme.radiusSm
-        |>.withBorder theme.borderWidth pal.borderSubtle)
-      [WidgetNode.text
-        (BoxStyle.row 0 |>.withFixedSize (innerBlockW - pxToSub 24) (pxToSub 40))
-        theme.typo.lineBase
-        codeRuns]
+    Widgets.buildCodeBlockWidget theme innerBlockW "lean4"
+      [ [ { text := "theorem ", role := .keyword }
+        , { text := "needsRedraw_none ", role := .functionName }
+        , { text := ": ", role := .operator }
+        , { text := "needsRedraw none = false ", role := .typeName }
+        , { text := ":= rfl", role := .keyword }
+        ]
+      ]
+      (some 301)
 
-  let diffDelRow : WidgetNode :=
-    WidgetNode.box
-      (BoxStyle.row 0
-        |>.withPadding (Edges.xy (pxToSub 10) (pxToSub 4))
-        |>.withFixedSize innerBlockW (pxToSub 28)
-        |>.withBg pal.diffDelBg
-        |>.withRadius theme.radiusSm
-        |>.withBorder theme.borderWidth pal.danger)
-      [WidgetNode.text
-        (BoxStyle.row 0 |>.withFixedSize (innerBlockW - pxToSub 20) (pxToSub 20))
-        theme.typo.lineTight
-        diffDelRuns]
+  let katexExpr : Widgets.MathExpr :=
+    .row
+      [ .atom "ΔE2E"
+      , .operator "≥"
+      , .fraction (.superscript (.atom "W") (.atom "2" false)) (.radical (.atom "N"))
+      ]
+  let mathWidgetNode : WidgetNode :=
+    Widgets.buildRichBlockWidget theme innerBlockW (.mathBlock katexExpr)
 
-  let diffAddRow : WidgetNode :=
-    WidgetNode.box
-      (BoxStyle.row 0
-        |>.withPadding (Edges.xy (pxToSub 10) (pxToSub 4))
-        |>.withFixedSize innerBlockW (pxToSub 28)
-        |>.withBg pal.diffAddBg
-        |>.withRadius theme.radiusSm
-        |>.withBorder theme.borderWidth pal.success)
-      [WidgetNode.text
-        (BoxStyle.row 0 |>.withFixedSize (innerBlockW - pxToSub 20) (pxToSub 20))
-        theme.typo.lineTight
-        diffAddRuns]
+  -- 3b. DiffViewer: Unified diff viewer with line-number gutters and `+add`/`-del` badges
+  let diffSpec : Widgets.DiffFileSpec := {
+    filePath := "lean/LeanUI/Scene.lean"
+    mode := .unified
+    collapsed := false
+    additions := 1
+    deletions := 1
+    collapseToggleId := some 302
+    modeToggleId := some 303
+    lines := [
+      { kind := .del, oldLine := some 41, newLine := none, text := "- WebKitGTK + SolidJS bridge", runs := diffDelRuns },
+      { kind := .add, oldLine := none, newLine := some 41, text := "+ LeanUI pure Layout + Scene + Vulkan SDF", runs := diffAddRuns }
+    ]
+  }
+  let diffViewerNode : WidgetNode :=
+    Widgets.buildDiffViewerWidget theme innerBlockW diffSpec
+
+  -- 3c. MermaidSvg: Layered Sugiyama diagram widget in `SubPx`
+  let diagramSpec : Widgets.DiagramSpec := {
+    title := "LeanUI Render Pipeline"
+    direction := .leftRight
+    nodeWidthSub := pxToSub 120
+    nodeHeightSub := pxToSub 34
+    rankGapSub := pxToSub 32
+    columnGapSub := pxToSub 14
+    nodes := [
+      { id := 1, label := "WidgetNode", rank := 0, column := 0, shape := .rounded, widgetId := some 401 },
+      { id := 2, label := "ComputedBox", rank := 1, column := 0, shape := .rounded, widgetId := some 402 },
+      { id := 3, label := "Vulkan SDF", rank := 2, column := 0, shape := .pill, accentColor := some pal.success, widgetId := some 403 }
+    ]
+    edges := [
+      { fromId := 1, toId := 2, label := "layout" },
+      { fromId := 2, toId := 3, label := "lower" }
+    ]
+  }
+  let mermaidWidgetNode : WidgetNode :=
+    Widgets.buildMermaidDiagramWidget theme innerBlockW diagramSpec
+
+  -- 3d. Overlays: Toast notification + Tooltip + SearchDialog filter check
+  let toastSpec : Widgets.ToastSpec := {
+    id := 501
+    kind := .success
+    title := "Wave 2B Reusable Widgets Verified"
+    message := "VirtualList, RichText, DiffViewer, MermaidSvg, Overlays, Composer"
+    dismissButtonId := some 502
+  }
+  let toastWidgetNode : WidgetNode :=
+    Widgets.buildToastWidget theme innerBlockW toastSpec
 
   let cardShadow : ShadowStyle := {
     offsetX := 0
@@ -249,64 +289,52 @@ def buildCanaryWidgetTree (theme : Theme) (availW availH : SubPx) (scrollOffsetS
     WidgetNode.box
       ( (Theme.cardBox theme)
         |>.withPadding (Edges.all (pxToSub 16))
-        |>.withFixedSize cardW (pxToSub 210)
+        |>.withFixedSize cardW (pxToSub 290)
         |>.withRadius theme.radiusLg
         |>.withShadow cardShadow )
-      [codeBlockNode, diffDelRow, diffAddRow]
+      [ WidgetNode.text
+          (BoxStyle.row 0 |>.withFixedSize innerBlockW (pxToSub 24))
+          theme.typo.lineBase
+          codeRuns
+      , codeBlockNode
+      , mathWidgetNode
+      , diffViewerNode
+      ]
 
   let assistantCard2 : WidgetNode :=
     WidgetNode.box
       ( (Theme.cardBox theme)
         |>.withPadding (Edges.all (pxToSub 16))
-        |>.withFixedSize cardW (pxToSub 120)
+        |>.withFixedSize cardW (pxToSub 188)
         |>.withRadius theme.radiusLg
         |>.withShadow cardShadow )
-      [diffAddRow]
+      [mermaidWidgetNode, toastWidgetNode]
 
-  let transcriptContent : WidgetNode :=
-    WidgetNode.box
-      (BoxStyle.col (pxToSub 16)
-        |>.withPadding (Edges.all (pxToSub 20))
-        |>.withFixedSize mainW (pxToSub 420))
-      [assistantCard1, assistantCard2]
-
-  let scrollSpec : ScrollSpec := {
-    offsetX := 0
-    offsetY := scrollOffsetSub
-    contentWidth := mainW
-    contentHeight := pxToSub 420
+  let vlistCfg : Widgets.VirtualListConfig := {
+    viewportWidthSub := mainW
+    viewportHeightSub := transcriptViewportH
+    itemGapSub := pxToSub 16
+    padding := Edges.all (pxToSub 20)
+    overscanSub := pxToSub 120
+    pinnedToBottom := false
+    scrollWidgetId := some 200
   }
+  let vlistItems : List (Widgets.VirtualItemMeta WidgetNode) := [
+    { id := 201, estimatedHeightSub := pxToSub 290, payload := assistantCard1 },
+    { id := 202, estimatedHeightSub := pxToSub 188, payload := assistantCard2 }
+  ]
+  let (_, transcriptScrollNode) :=
+    Widgets.buildVirtualListWidget theme vlistCfg scrollOffsetSub vlistItems (fun p => p.item.payload)
 
-  let transcriptScrollNode : WidgetNode :=
-    WidgetNode.scrollClip
-      (BoxStyle.col 0
-        |>.withFixedSize mainW transcriptViewportH
-        |>.withBg pal.canvas)
-      scrollSpec
-      transcriptContent
-      (some 200)
-
-  -- 4. Bottom Focusable Composer Box (`WidgetId` 1) with `Kernel.focusBorder`
-  let composerInner : WidgetNode :=
-    WidgetNode.focusable composerWidgetId <|
-      WidgetNode.rrect
-        (BoxStyle.row (pxToSub 8)
-          |>.withAlign .center
-          |>.withPadding (Edges.xy (pxToSub 16) (pxToSub 12))
-          |>.withFixedSize cardW (pxToSub 44))
-        pal.elevatedSurface
-        (CornerRadii.uniform theme.radiusMd)
-        (BorderStyle.uniform theme.borderWidth pal.border)
-
+  -- 4. Bottom Focusable Composer Box (`WidgetId` 1) via `LeanUI.Widgets.Composer` with `Kernel.focusBorder`
+  let composerBuf0 : Widgets.ComposerBuffer := {
+    composerWidgetId := composerWidgetId
+    sendButtonId := some 2
+  }
+  let composerBuf1 :=
+    (composerBuf0.insertText "turbo-lean build LeanUI LeanUISpec").undo.redo
   let composerContainer : WidgetNode :=
-    WidgetNode.box
-      (BoxStyle.row 0
-        |>.withAlign .center
-        |>.withPadding (Edges.xy (pxToSub 20) (pxToSub 10))
-        |>.withFixedSize mainW composerH
-        |>.withBg pal.surface
-        |>.withBorder theme.borderWidth pal.borderSubtle)
-      [composerInner]
+    Widgets.buildComposerWidget theme mainW composerH composerBuf1
 
   let rightColumn : WidgetNode :=
     WidgetNode.box
